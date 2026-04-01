@@ -1,61 +1,91 @@
-# 🚀 SocialMediaApi
-**Modern Social Media Backend + Real-time Chat – Scalable, Fast, and Beginner-Friendly**
+# Finance Data Processing and Access Control Backend
 
-A **fully async, non-blocking** social media backend built to handle **thousands of concurrent connections** without breaking a sweat. Powered by FastAPI, asyncpg, Redis, and WebSockets — every route, every query, every cache hit runs on the event loop. Features **refresh token rotation** with family-based revocation, **real-time notifications** via Redis Pub/Sub, **IP & user-based rate limiting**, **Redis caching across 11+ endpoints** with automatic invalidation. CPU-heavy work (bcrypt, JWT) is offloaded to the thread pool so the server never stalls. Production-grade, real-time, and built for scale.
+Async-first FastAPI backend for finance record management, dashboard analytics, secure JWT auth, strict role-based access control, Redis-backed rate limiting and caching, plus CI-tested reliability.
 
----
+## Why This Project Stands Out
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.119+-green?logo=fastapi)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-yellow?logo=sqlalchemy)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue?logo=postgresql)
-![WebSockets Badge](https://img.shields.io/badge/WebSockets-101010?style=for-the-badge&logo=socket.io&logoColor=white)
-![JWT Badge](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=JSON%20web%20tokens&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=plastic&logo=docker&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-7.0+-red?logo=redis&logoColor=white)
+- Fully async stack: FastAPI + SQLAlchemy async + asyncpg + Redis asyncio.
+- Production-style auth: Access and refresh JWT with rotation and revocation.
+- Real RBAC: Viewer, Analyst, Admin enforced at backend dependency level.
+- Data processing focus: Aggregates, category totals, trends, and recent activity APIs.
+- Realtime capability: Presence WebSocket with application-level heartbeat.
+- Quality signal: 36 passing tests + GitHub Actions CI.
 
-## 🌟 Features — Everything Inside
+## Tech Stack
 
-_This API packs **a lot**. For the full breakdown of every feature — async architecture, auth, chat, caching, media, DevOps, and more — see [`FEATURES.md`](./FEATURES.md)._
+- Python 3.14
+- FastAPI
+- PostgreSQL 16
+- SQLAlchemy 2.x (async)
+- asyncpg
+- Redis 7
+- Alembic
+- Pydantic v2
+- Pytest + pytest-asyncio + fakeredis
+- Docker Compose
 
----
+## Project Docs
 
-## 🚦 Getting Started — Simplified with Docker!
+- Full feature map: [FEATURES.md](FEATURES.md)
+- Complete endpoint reference: [API_GUIDE.md](API_GUIDE.md)
+- Setup guide (Docker + local): [SETUP.md](SETUP.md)
+- Testing guide: [TESTS.md](TESTS.md)
+- Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-_Want to Run the Api or wanna test or make your own changes to the code here's [`SET-UP`](https://github.com/Shankar-105/Social-Media-Api/blob/main/SETUP.md) how you can 
-clone the repositroy and set up the environment._
+## Quick Start
 
----
+1. Copy environment file.
 
-## 📖 How to Use the API — Complete Endpoint Reference
+```bash
+cp .env.example .env
+```
 
-_Now that your setup is running, explore every endpoint this API has to offer! Check out [`API_GUIDE.md`](./API_GUIDE.md) for a detailed walkthrough of all **55 REST endpoints** and the **real-time WebSocket chat system**._
+2. Start infrastructure.
 
-> 💡 **Quick Start:** Visit `http://localhost:8000/docs` for the built-in Swagger UI — test endpoints right from your browser!
+```bash
+docker compose up -d postgres redis
+```
 
----
+3. Install dependencies and migrate.
 
-## 🧪 Testing — Comprehensive Test Suite!
+```bash
+python -m pip install -r requirements.txt
+alembic upgrade head
+```
 
-_Ready to verify everything works? Check out [`TESTS.md`](./TESTS.md) for a complete guide on running the test suite._
+4. Start API.
 
-**Quick Test Run:**
-- 🐳 **Inside Docker** (Recommended): `docker compose exec api pytest pytests/ -v`
-- 💻 **Locally**: Install dependencies and run `pytest pytests/ -v`
+```bash
+uvicorn app.main:app --reload
+```
 
-_All tests use a separate test database—your dev data stays safe! 🛡️_
+5. Open docs.
 
----
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
 
-## 🤝 Contributing
+## Test and CI
 
-_Backend developer? Frontend developer? Either, there's a clear path for you. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for role-specific setup guides, code conventions, and PR instructions._
+- Run tests locally:
 
----
+```bash
+python -m pytest -q
+```
 
-## 👨‍💻 Built by Bhavani Shankar  
-**ANITS College, Vizag**
+- CI workflow file:
 
-> Thanks for checking out the project.
-> If you use this API , let me know—would love to hear you 🚀 🎓
----
+[.github/workflows/ci.yml](.github/workflows/ci.yml)
+
+It runs PostgreSQL + Redis services, installs dependencies, validates DB connectivity, and executes the full test suite on every push and pull request.
+
+## Assignment Mapping
+
+This implementation directly covers the internship assignment requirements:
+
+- User and role management: Implemented.
+- Financial record CRUD + filtering: Implemented.
+- Dashboard summary and trends: Implemented.
+- Access control logic: Implemented.
+- Validation and error handling: Implemented.
+- Data persistence with PostgreSQL: Implemented.
+- Optional enhancements (auth, rate limits, tests, docs, CI, WebSocket): Implemented.
