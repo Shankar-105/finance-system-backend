@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     database_port: int = 5432
     database_name: str = "finance_db"
     database_user: str = "postgres"
-    database_password: str = "postgres"
+    database_password: str = "iota143"
 
     redis_host: str = "localhost"
     redis_port: int = 6379
