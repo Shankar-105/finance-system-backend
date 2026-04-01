@@ -26,6 +26,20 @@ class TokenPayload(BaseModel):
     sub: str
     exp: int
     typ: str
+    jti: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
 
 
 class UserBase(BaseModel):

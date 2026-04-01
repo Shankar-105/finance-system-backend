@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -27,7 +28,12 @@ async def create_token(subject: str, token_type: str, expires_delta: timedelta) 
     import asyncio
 
     expire = datetime.now(timezone.utc) + expires_delta
-    to_encode = {"sub": subject, "exp": expire, "typ": token_type}
+    to_encode = {
+        "sub": subject,
+        "exp": expire,
+        "typ": token_type,
+        "jti": str(uuid4()),
+    }
     return await asyncio.to_thread(jwt.encode, to_encode, settings.secret_key, settings.algorithm)
 
 
@@ -60,3 +66,7 @@ async def decode_token(token: str) -> TokenPayload:
         return TokenPayload(**payload)
     except JWTError as exc:
         raise ValueError("Invalid token") from exc
+
+
+def exp_to_datetime(exp: int) -> datetime:
+    return datetime.fromtimestamp(exp, tz=timezone.utc)
