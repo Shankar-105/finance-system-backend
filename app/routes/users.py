@@ -27,6 +27,7 @@ from app.services.auth_service import (
     refresh_access_pair,
     revoke_token_if_present,
 )
+from app.services.presence_service import get_online_user_ids
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -116,3 +117,11 @@ async def admin_ping(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MessageResponse:
     return MessageResponse(message="Admin access granted")
+
+
+@router.get("/admin/online-users", response_model=list[int])
+async def get_online_users(
+    redis: Redis = Depends(get_redis),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> list[int]:
+    return await get_online_user_ids(redis)

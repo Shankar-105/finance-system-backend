@@ -3,6 +3,7 @@ from collections.abc import Callable
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +20,10 @@ settings = get_settings()
 
 
 async def _is_blacklisted(redis: Redis, jti: str) -> bool:
-    return bool(await redis.get(f"blacklist:{jti}"))
+    try:
+        return bool(await redis.get(f"blacklist:{jti}"))
+    except RedisError:
+        return False
 
 
 async def get_current_user(

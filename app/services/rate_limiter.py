@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, Request
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.db import get_redis
 
@@ -19,16 +20,22 @@ def fixed_window_rate_limiter(
 		path_key = request.url.path.replace("/", "_")
 		key = f"{key_prefix}:{client_ip}:{path_key}"
 
-		current = await redis.incr(key)
-		if current == 1:
-			await redis.expire(key, window_seconds)
+		try:
+			current = await redis.incr(key)
+			if current == 1:
+				await redis.expire(key, window_seconds)
 
-		if current > max_requests:
-			retry_after = await redis.ttl(key)
+			if current > max_requests:
+				retry_after = await redis.ttl(key)
+				raise HTTPException(
+					status_code=429,
+					detail="Rate limit exceeded",
+					headers={"Retry-After": str(max(retry_after, 1))},
+				)
+		except RedisError as exc:
 			raise HTTPException(
-				status_code=429,
-				detail="Rate limit exceeded",
-				headers={"Retry-After": str(max(retry_after, 1))},
-			)
+				status_code=503,
+				detail="Rate limiter unavailable",
+			) from exc
 
 	return dependency

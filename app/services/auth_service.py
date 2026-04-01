@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,7 +67,10 @@ async def _blacklist_token(
 
 	ttl_seconds = int((expires_at - datetime.now(timezone.utc)).total_seconds())
 	if ttl_seconds > 0:
-		await redis.set(f"blacklist:{jti}", "1", ex=ttl_seconds)
+		try:
+			await redis.set(f"blacklist:{jti}", "1", ex=ttl_seconds)
+		except RedisError:
+			pass
 
 
 async def refresh_access_pair(db: AsyncSession, redis: Redis, refresh_token: str) -> Token:
@@ -74,8 +78,11 @@ async def refresh_access_pair(db: AsyncSession, redis: Redis, refresh_token: str
 	if payload.typ != "refresh":
 		raise ValueError("Invalid refresh token type")
 
-	if await redis.get(f"blacklist:{payload.jti}"):
-		raise ValueError("Refresh token revoked")
+	try:
+		if await redis.get(f"blacklist:{payload.jti}"):
+			raise ValueError("Refresh token revoked")
+	except RedisError:
+		pass
 
 	token_row = await db.scalar(select(RefreshToken).where(RefreshToken.jti == payload.jti))
 	if token_row is None:
