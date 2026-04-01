@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.schemas import TokenPayload
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 async def hash_password(password: str) -> str:
