@@ -28,3 +28,8 @@ alembic/versions/*.pyc
 # OS files
 .DS_Store
 Thumbs.db
+
+sample-readme.md
+sample_tests.md
+sample_setup.md
+docs/DASHBOARD_GUIDE.md

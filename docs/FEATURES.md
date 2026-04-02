@@ -29,7 +29,7 @@ Behavior:
 - viewer: dashboard read access.
 - analyst: dashboard plus records read access.
 - admin: users admin routes and full financial records write access.
-- self-signup is viewer-only; analyst/admin assignment is admin-controlled.
+- self-signup is viewer-only; analyst/admin role governance is admin-controlled.
 - first admin is created through one-time bootstrap key flow.
 
 RBAC is enforced via dependency guards, not frontend trust.
@@ -46,16 +46,23 @@ RBAC is enforced via dependency guards, not frontend trust.
 
 ## 5. Dashboard Analytics APIs
 
-- Summary totals: total income, total expenses, net balance.
-- Category totals.
-- Recent activity feed.
-- Monthly trends grouped by month.
-- Date-range filters available across analytics endpoints.
+- Summary totals endpoint for at-a-glance KPI cards:
+- total income
+- total expenses
+- net balance
+- Category totals endpoint for composition analysis.
+- Recent activity endpoint for operational visibility.
+- Monthly trends endpoint for trend monitoring and forecasting workflows.
+- Date-range filtering across analytics endpoints for period slicing.
+- Input validation prevents invalid date windows.
+- Dashboard service centralizes metric computations for consistency.
+- Role-aware read access for viewer, analyst, and admin.
 
 ## 6. Redis Caching
 
 - Dashboard aggregate endpoints are cached with TTL.
 - Cache invalidation occurs on financial record mutations.
+- Cache invalidation also occurs on recycle-bin restore operations.
 - Graceful fallback to DB computation if cache backend is unavailable.
 
 ## 7. Rate Limiting
@@ -108,4 +115,4 @@ Schema constraints include:
 ## 12. Documentation Quality
 
 - Dedicated docs provided for setup, API usage, testing, contribution workflow, and feature architecture.
-- Suitable for internship evaluation and recruiter review.
+- Dedicated dashboard guide describes KPI design, endpoint strategy, and extension roadmap.

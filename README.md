@@ -1,80 +1,39 @@
-# Finance Data Processing and Access Control Backend
+# Finance Data Processing and Access Control Backend 🚀
 
-Async-first FastAPI backend for finance record management, dashboard analytics, secure JWT auth, strict role-based access control, Redis-backed rate limiting and caching, plus CI-tested reliability.
+Modern async finance backend with secure auth, role-based access control, analytics-ready dashboard APIs, recycle-bin safety for records, and reliable automated testing.
 
-## Why This Project Stands Out
+---
 
-- Fully async stack: FastAPI + SQLAlchemy async + asyncpg + Redis asyncio.
-- Production-style auth: Access and refresh JWT with rotation and revocation.
-- Real RBAC: Viewer, Analyst, Admin enforced at backend dependency level with viewer-only self-signup and admin-managed privilege assignment.
-- Data processing focus: Aggregates, category totals, trends, and recent activity APIs.
-- Operational safety: Recycle bin retention for soft-deleted records with restore support.
-- Realtime capability: Presence WebSocket with application-level heartbeat.
-- Quality signal: 47 passing tests + GitHub Actions CI.
+![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Async-green?logo=fastapi)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-7-red?logo=redis)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-47%20Passing-success)
 
-## Tech Stack
+## 🌟 What You Get
 
-- Python 3.14
-- FastAPI
-- PostgreSQL 16
-- SQLAlchemy 2.x (async)
-- asyncpg
-- Redis 7
-- Alembic
-- Pydantic v2
-- Pytest + pytest-asyncio + fakeredis
-- Docker Compose
+- Secure JWT auth with refresh rotation and revocation.
+- RBAC with controlled role governance (viewer, analyst, admin).
+- Dashboard APIs for summary, category distribution, trends, and recent activity.
+- Recycle-bin workflow for deleted records with restore + retention policy.
+- Redis-backed cache and rate limiting.
+- Fully async architecture from routes to data layer.
 
-## Project Docs
+---
 
-- Full feature map: [FEATURES.md](FEATURES.md)
-- Complete endpoint reference: [API_GUIDE.md](API_GUIDE.md)
-- Setup guide (Docker + local): [SETUP.md](SETUP.md)
-- Testing guide: [TESTS.md](TESTS.md)
-- Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
+## 📘 Documentation
 
-## Quick Start
+- Full Features Documented: [docs/FEATURES.md](docs/FEATURES.md)
+- Complete API Endpoints reference: [docs/API_GUIDE.md](docs/API_GUIDE.md)
+- Dashboard deep-dive: [docs/DASHBOARD_GUIDE.md](docs/DASHBOARD_GUIDE.md)
+- Setup guide: [docs/SETUP.md](docs/SETUP.md)
+- Testing guide using pytests: [docs/TESTS.md](docs/TESTS.md)
+- Contribution guide: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
 
-1. Copy environment file.
+---
+## ⚙️ CI
 
-```bash
-cp .env.example .env
-```
+GitHub Actions workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
-2. Start infrastructure.
-
-```bash
-docker compose up -d postgres redis
-```
-
-3. Install dependencies and migrate.
-
-```bash
-python -m pip install -r requirements.txt
-alembic upgrade head
-```
-
-4. Start API.
-
-```bash
-uvicorn app.main:app --reload
-```
-
-5. Open docs.
-
-- Swagger UI: http://127.0.0.1:8000/docs
-- ReDoc: http://127.0.0.1:8000/redoc
-
-## Test and CI
-
-- Run tests locally:
-
-```bash
-python -m pytest -q
-```
-
-- CI workflow file:
-
-[.github/workflows/ci.yml](.github/workflows/ci.yml)
-
-It runs PostgreSQL + Redis services, installs dependencies, validates DB connectivity, and executes the full test suite on every push and pull request.
+Runs service containers, installs dependencies, validates connectivity, and executes the full test suite on push and pull request.

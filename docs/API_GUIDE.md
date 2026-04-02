@@ -380,6 +380,23 @@ Retention policy:
 
 All dashboard endpoints require any authenticated role: viewer, analyst, or admin.
 
+### Dashboard Endpoint Matrix
+
+| Endpoint | Main Use | Typical Widget |
+|---|---|---|
+| GET /api/v1/dashboard/summary | KPI snapshot | Income/Expense/Net cards |
+| GET /api/v1/dashboard/categories | Spend or income composition | Category pie/bar |
+| GET /api/v1/dashboard/recent-activity | Latest changes | Recent activity table |
+| GET /api/v1/dashboard/monthly-trends | Time-series behavior | Multi-line trend chart |
+
+### Role-Based Dashboard Consumption
+
+| Role | What They Usually Need |
+|---|---|
+| viewer | Read-only KPIs and trends |
+| analyst | KPI + category + trend analysis |
+| admin | Same analytics plus operational actions elsewhere |
+
 ### GET /api/v1/dashboard/summary
 
 - Purpose: total income, total expenses, net balance
@@ -436,6 +453,37 @@ Response:
   }
 ]
 ```
+
+### High-Value Query Patterns
+
+Example: Monthly snapshot
+
+```http
+GET /api/v1/dashboard/summary?start_date=2026-04-01&end_date=2026-04-30
+```
+
+Example: Quarterly trend analysis
+
+```http
+GET /api/v1/dashboard/monthly-trends?start_date=2026-01-01&end_date=2026-03-31
+```
+
+Example: Focused recent feed
+
+```http
+GET /api/v1/dashboard/recent-activity?limit=20
+```
+
+### Recommended Next Dashboard APIs (Roadmap)
+
+The current implementation already provides a strong 4-endpoint base. Typical production extensions are:
+
+1. `/dashboard/period-comparison`
+2. `/dashboard/top-expense-categories`
+3. `/dashboard/cashflow`
+4. `/dashboard/anomalies`
+
+These are recommendations and are not part of the currently implemented route set.
 
 ## WebSocket Presence API
 
