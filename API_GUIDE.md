@@ -6,7 +6,7 @@ Comprehensive endpoint reference for the Finance Data Processing and Access Cont
 
 | Type | Count |
 |------|-------|
-| REST Endpoints | 15 |
+| REST Endpoints | 20 |
 | WebSocket Endpoints | 1 |
 | API Prefix | /api/v1 |
 
@@ -79,23 +79,92 @@ Response:
 
 - Auth: No
 - Rate limited: Yes
-- Purpose: Register a new user
+- Purpose: Register a new user with viewer role
 
 Request body:
 
 ```json
 {
-  "email": "admin@example.com",
-  "username": "admin_user",
+  "email": "user@example.com",
+  "username": "normal_user",
   "password": "StrongPass123",
-  "role": "admin"
+  "role": "viewer"
 }
 ```
+
+Security note:
+
+- Self-registration is restricted to `viewer` role.
+- Sending `analyst` or `admin` in signup returns 403.
+- Privileged roles are assigned through admin-only management endpoint.
 
 Responses:
 
 - 201 Created
 - 409 Conflict when email or username already exists
+- 403 Forbidden when role is analyst or admin
+
+### POST /api/v1/users/bootstrap-admin
+
+- Auth: No
+- Rate limited: Yes
+- Purpose: Securely create the very first admin user
+
+Requirements:
+
+- Environment variable `ADMIN_BOOTSTRAP_KEY` must be configured.
+- Header `X-Bootstrap-Key` must exactly match the configured key.
+- Endpoint is one-time: blocked once any admin already exists.
+
+Request body example:
+
+```json
+{
+  "email": "founder-admin@example.com",
+  "username": "founder_admin",
+  "password": "StrongPass123",
+  "role": "viewer"
+}
+```
+
+Notes:
+
+- Request role is ignored; created user is always `admin`.
+
+### PATCH /api/v1/users/admin/users/{user_id}
+
+- Auth: Admin only
+- Purpose: Update user role and/or active status
+
+Request body example:
+
+```json
+{
+  "role": "analyst",
+  "is_active": true
+}
+```
+
+### POST /api/v1/users/admin/users
+
+- Auth: Admin only
+- Purpose: Admin creates viewer or analyst account with initial credentials
+
+Request body example:
+
+```json
+{
+  "email": "analyst1@example.com",
+  "username": "analyst1",
+  "password": "StrongPass123",
+  "role": "analyst"
+}
+```
+
+Notes:
+
+- This endpoint intentionally blocks direct `admin` creation.
+- Use role update flow for controlled admin promotion.
 
 ### POST /api/v1/users/login
 
@@ -289,6 +358,23 @@ Behavior:
 
 - Sets is_deleted true and deleted_at timestamp.
 - Deleted records are excluded from standard reads.
+- Deleted records are retained in recycle bin up to configured retention days (default 30).
+
+### GET /api/v1/financial-records/bin/records
+
+- Auth: Admin only
+- Purpose: List soft-deleted records currently in recycle bin
+- Query params: offset, limit
+
+### POST /api/v1/financial-records/bin/records/{record_id}/restore
+
+- Auth: Admin only
+- Purpose: Restore a soft-deleted record from recycle bin
+
+Retention policy:
+
+- Records older than configured retention window are automatically purged.
+- Expired records are not restorable.
 
 ## Dashboard Endpoints
 
@@ -378,10 +464,12 @@ Presence behavior:
 
 ## Practical Testing Order for Evaluators
 
-1. Register admin user.
+1. Bootstrap first admin user.
 2. Login and capture access and refresh token.
 3. Call users/me.
-4. Create income and expense records.
-5. Call dashboard summary and categories.
-6. Refresh token and verify old refresh token is rejected on reuse.
-7. Logout and verify old access token no longer works.
+4. Create analyst account via admin endpoint.
+5. Create income and expense records.
+6. Soft delete a record, inspect recycle bin, then restore.
+7. Call dashboard summary and categories.
+8. Refresh token and verify old refresh token is rejected on reuse.
+9. Logout and verify old access token no longer works.

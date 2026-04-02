@@ -14,7 +14,7 @@ from sqlalchemy.pool import NullPool
 from app.config import get_settings
 from app.db import get_db, get_redis
 from app.main import app
-from app.models import Base
+from app.models import Base, User, UserRole
 from app.services import presence_service
 
 settings = get_settings()
@@ -148,10 +148,18 @@ async def user_factory(client: AsyncClient) -> Callable:
             "email": f"{unique}@example.com",
             "username": f"user_{unique}",
             "password": password,
-            "role": role,
+            "role": "viewer",
         }
         register_resp = await client.post("/api/v1/users/register", json=register_payload)
         assert register_resp.status_code == 201
+
+        if role != "viewer":
+            assert TestingSessionLocal is not None
+            async with TestingSessionLocal() as session:
+                user = await session.get(User, register_resp.json()["id"])
+                assert user is not None
+                user.role = UserRole(role)
+                await session.commit()
 
         login_resp = await client.post(
             "/api/v1/users/login",

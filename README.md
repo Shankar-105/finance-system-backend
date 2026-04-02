@@ -6,10 +6,11 @@ Async-first FastAPI backend for finance record management, dashboard analytics, 
 
 - Fully async stack: FastAPI + SQLAlchemy async + asyncpg + Redis asyncio.
 - Production-style auth: Access and refresh JWT with rotation and revocation.
-- Real RBAC: Viewer, Analyst, Admin enforced at backend dependency level.
+- Real RBAC: Viewer, Analyst, Admin enforced at backend dependency level with viewer-only self-signup and admin-managed privilege assignment.
 - Data processing focus: Aggregates, category totals, trends, and recent activity APIs.
+- Operational safety: Recycle bin retention for soft-deleted records with restore support.
 - Realtime capability: Presence WebSocket with application-level heartbeat.
-- Quality signal: 36 passing tests + GitHub Actions CI.
+- Quality signal: 47 passing tests + GitHub Actions CI.
 
 ## Tech Stack
 
@@ -77,15 +78,3 @@ python -m pytest -q
 [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
 It runs PostgreSQL + Redis services, installs dependencies, validates DB connectivity, and executes the full test suite on every push and pull request.
-
-## Assignment Mapping
-
-This implementation directly covers the internship assignment requirements:
-
-- User and role management: Implemented.
-- Financial record CRUD + filtering: Implemented.
-- Dashboard summary and trends: Implemented.
-- Access control logic: Implemented.
-- Validation and error handling: Implemented.
-- Data persistence with PostgreSQL: Implemented.
-- Optional enhancements (auth, rate limits, tests, docs, CI, WebSocket): Implemented.

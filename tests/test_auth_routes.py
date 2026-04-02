@@ -1,5 +1,7 @@
 from httpx import AsyncClient
 
+from app.config import get_settings
+
 
 async def test_health_endpoint(client: AsyncClient):
     resp = await client.get("/health")
@@ -12,14 +14,25 @@ async def test_register_success(client: AsyncClient):
         "email": "register1@example.com",
         "username": "register_user_1",
         "password": "StrongPass123",
-        "role": "admin",
+        "role": "viewer",
     }
     resp = await client.post("/api/v1/users/register", json=payload)
     assert resp.status_code == 201
     data = resp.json()
     assert data["email"] == payload["email"]
     assert data["username"] == payload["username"]
-    assert data["role"] == "admin"
+    assert data["role"] == "viewer"
+
+
+async def test_register_privileged_role_rejected(client: AsyncClient):
+    payload = {
+        "email": "register_admin_reject@example.com",
+        "username": "register_admin_reject",
+        "password": "StrongPass123",
+        "role": "admin",
+    }
+    resp = await client.post("/api/v1/users/register", json=payload)
+    assert resp.status_code == 403
 
 
 async def test_register_duplicate_email_conflict(client: AsyncClient):
@@ -27,7 +40,7 @@ async def test_register_duplicate_email_conflict(client: AsyncClient):
         "email": "dupe@example.com",
         "username": "dupe_user_1",
         "password": "StrongPass123",
-        "role": "admin",
+        "role": "viewer",
     }
     first = await client.post("/api/v1/users/register", json=payload)
     assert first.status_code == 201
@@ -114,3 +127,52 @@ async def test_logout_revokes_access_token(client: AsyncClient, user_factory):
 
     me_resp = await client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {access}"})
     assert me_resp.status_code == 401
+
+
+async def test_bootstrap_admin_requires_key_when_disabled(client: AsyncClient):
+    get_settings.cache_clear()
+
+    payload = {
+        "email": "bootstrap-disabled@example.com",
+        "username": "bootstrap_disabled",
+        "password": "StrongPass123",
+        "role": "admin",
+    }
+    resp = await client.post("/api/v1/users/bootstrap-admin", json=payload)
+    assert resp.status_code == 403
+
+
+async def test_bootstrap_admin_works_once_with_valid_key(client: AsyncClient, monkeypatch):
+    monkeypatch.setenv("ADMIN_BOOTSTRAP_KEY", "test-bootstrap-key")
+    get_settings.cache_clear()
+
+    payload = {
+        "email": "bootstrap-admin@example.com",
+        "username": "bootstrap_admin",
+        "password": "StrongPass123",
+        "role": "viewer",
+    }
+
+    first = await client.post(
+        "/api/v1/users/bootstrap-admin",
+        headers={"X-Bootstrap-Key": "test-bootstrap-key"},
+        json=payload,
+    )
+    assert first.status_code == 201
+    assert first.json()["role"] == "admin"
+
+    second_payload = {
+        "email": "bootstrap-admin-2@example.com",
+        "username": "bootstrap_admin_2",
+        "password": "StrongPass123",
+        "role": "viewer",
+    }
+    second = await client.post(
+        "/api/v1/users/bootstrap-admin",
+        headers={"X-Bootstrap-Key": "test-bootstrap-key"},
+        json=second_payload,
+    )
+    assert second.status_code == 403
+
+    monkeypatch.delenv("ADMIN_BOOTSTRAP_KEY", raising=False)
+    get_settings.cache_clear()

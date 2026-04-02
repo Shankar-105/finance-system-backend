@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from httpx import AsyncClient
 
+from app.config import get_settings
+
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
@@ -203,3 +205,111 @@ async def test_soft_delete_hides_record(client: AsyncClient, user_factory):
 
     get_deleted = await client.get(f"/api/v1/financial-records/{record_id}", headers=_auth(token))
     assert get_deleted.status_code == 404
+
+
+async def test_recycle_bin_list_and_restore_flow(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    created = await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "210.00",
+            "record_type": "expense",
+            "category": "medical",
+            "entry_date": "2026-04-07",
+            "notes": "to recycle bin",
+        },
+    )
+    assert created.status_code == 201
+    record_id = created.json()["id"]
+
+    deleted = await client.delete(f"/api/v1/financial-records/{record_id}", headers=_auth(token))
+    assert deleted.status_code == 200
+
+    in_bin = await client.get("/api/v1/financial-records/bin/records", headers=_auth(token))
+    assert in_bin.status_code == 200
+    assert in_bin.json()["total"] >= 1
+    assert any(item["id"] == record_id for item in in_bin.json()["items"])
+
+    restored = await client.post(
+        f"/api/v1/financial-records/bin/records/{record_id}/restore",
+        headers=_auth(token),
+    )
+    assert restored.status_code == 200
+    assert restored.json()["id"] == record_id
+
+    fetched = await client.get(f"/api/v1/financial-records/{record_id}", headers=_auth(token))
+    assert fetched.status_code == 200
+
+
+async def test_recycle_bin_requires_admin(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    analyst = await user_factory(role="analyst")
+
+    created = await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(admin["tokens"]["access_token"]),
+        json={
+            "amount": "99.00",
+            "record_type": "expense",
+            "category": "misc",
+            "entry_date": "2026-04-07",
+            "notes": "rbac test",
+        },
+    )
+    record_id = created.json()["id"]
+    await client.delete(
+        f"/api/v1/financial-records/{record_id}",
+        headers=_auth(admin["tokens"]["access_token"]),
+    )
+
+    list_resp = await client.get(
+        "/api/v1/financial-records/bin/records",
+        headers=_auth(analyst["tokens"]["access_token"]),
+    )
+    assert list_resp.status_code == 403
+
+    restore_resp = await client.post(
+        f"/api/v1/financial-records/bin/records/{record_id}/restore",
+        headers=_auth(analyst["tokens"]["access_token"]),
+    )
+    assert restore_resp.status_code == 403
+
+
+async def test_recycle_bin_auto_purges_after_retention(client: AsyncClient, user_factory, monkeypatch):
+    monkeypatch.setenv("RECYCLE_BIN_RETENTION_DAYS", "0")
+    get_settings.cache_clear()
+
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    created = await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "77.00",
+            "record_type": "expense",
+            "category": "misc",
+            "entry_date": "2026-04-07",
+            "notes": "purge me",
+        },
+    )
+    record_id = created.json()["id"]
+
+    deleted = await client.delete(f"/api/v1/financial-records/{record_id}", headers=_auth(token))
+    assert deleted.status_code == 200
+
+    bin_resp = await client.get("/api/v1/financial-records/bin/records", headers=_auth(token))
+    assert bin_resp.status_code == 200
+    assert all(item["id"] != record_id for item in bin_resp.json()["items"])
+
+    restore_resp = await client.post(
+        f"/api/v1/financial-records/bin/records/{record_id}/restore",
+        headers=_auth(token),
+    )
+    assert restore_resp.status_code == 404
+
+    monkeypatch.delenv("RECYCLE_BIN_RETENTION_DAYS", raising=False)
+    get_settings.cache_clear()

@@ -52,6 +52,11 @@ class UserCreate(UserBase):
     role: UserRole = UserRole.VIEWER
 
 
+class AdminUserCreate(UserBase):
+    password: str = Field(min_length=8, max_length=128)
+    role: UserRole = UserRole.VIEWER
+
+
 class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
@@ -95,11 +100,22 @@ class FinancialRecordOut(FinancialRecordBase):
     updated_at: datetime
 
 
+class DeletedFinancialRecordOut(FinancialRecordOut):
+    deleted_at: datetime
+
+
 class FinancialRecordListResponse(BaseModel):
     total: int
     offset: int
     limit: int
     items: list[FinancialRecordOut]
+
+
+class DeletedFinancialRecordListResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    items: list[DeletedFinancialRecordOut]
 
 
 class PaginationParams(BaseModel):

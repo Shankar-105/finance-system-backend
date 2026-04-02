@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+    admin_bootstrap_key: str | None = None
 
     rate_limit_window_seconds: int = 60
     rate_limit_max_requests: int = 100
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     online_status_ttl_seconds: int = 45
 
     dashboard_cache_ttl_seconds: int = 60
+    recycle_bin_retention_days: int = 30
 
     @computed_field
     @property

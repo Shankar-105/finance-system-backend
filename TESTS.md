@@ -4,8 +4,8 @@ This project uses pytest with async fixtures, a dedicated PostgreSQL test databa
 
 ## Current Test Status
 
-- 36 tests passing.
-- Coverage includes auth, RBAC, financial records, dashboard analytics, presence service, and route surface validation.
+- 47 tests passing.
+- Coverage includes auth, RBAC, admin account provisioning, financial records, recycle-bin restore/retention purge, dashboard analytics, presence service, and route surface validation.
 
 ## Test Stack
 

@@ -1,14 +1,17 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from redis.asyncio import Redis
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db import get_db, get_redis
 from app.dependencies import get_current_user, sensitive_route_limiter
 from app.models import FinancialRecord, RecordType, User, UserRole
 from app.schemas import (
+    DeletedFinancialRecordListResponse,
+    DeletedFinancialRecordOut,
     FinancialRecordCreate,
     FinancialRecordListResponse,
     FinancialRecordOut,
@@ -30,6 +33,19 @@ def _assert_admin(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
 
+async def _purge_expired_deleted_records(db: AsyncSession) -> None:
+    settings = get_settings()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.recycle_bin_retention_days)
+    await db.execute(
+        delete(FinancialRecord).where(
+            FinancialRecord.is_deleted.is_(True),
+            FinancialRecord.deleted_at.is_not(None),
+            FinancialRecord.deleted_at <= cutoff,
+        )
+    )
+    await db.commit()
+
+
 @router.post("", response_model=FinancialRecordOut, status_code=status.HTTP_201_CREATED)
 async def create_financial_record(
     payload: FinancialRecordCreate,
@@ -39,6 +55,7 @@ async def create_financial_record(
     _: None = Depends(sensitive_route_limiter),
 ) -> FinancialRecordOut:
     _assert_admin(current_user)
+    await _purge_expired_deleted_records(db)
 
     target_user_id = payload.user_id or current_user.id
     target_user = await db.get(User, target_user_id)
@@ -72,6 +89,7 @@ async def list_financial_records(
     current_user: User = Depends(get_current_user),
 ) -> FinancialRecordListResponse:
     _assert_can_read_records(current_user)
+    await _purge_expired_deleted_records(db)
 
     if start_date and end_date and start_date > end_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start_date cannot be after end_date")
@@ -113,6 +131,7 @@ async def get_financial_record(
     current_user: User = Depends(get_current_user),
 ) -> FinancialRecordOut:
     _assert_can_read_records(current_user)
+    await _purge_expired_deleted_records(db)
 
     row = await db.get(FinancialRecord, record_id)
     if row is None or row.is_deleted:
@@ -131,6 +150,7 @@ async def update_financial_record(
     _: None = Depends(sensitive_route_limiter),
 ) -> FinancialRecordOut:
     _assert_admin(current_user)
+    await _purge_expired_deleted_records(db)
 
     row = await db.get(FinancialRecord, record_id)
     if row is None or row.is_deleted:
@@ -158,6 +178,7 @@ async def soft_delete_financial_record(
     _: None = Depends(sensitive_route_limiter),
 ) -> MessageResponse:
     _assert_admin(current_user)
+    await _purge_expired_deleted_records(db)
 
     row = await db.get(FinancialRecord, record_id)
     if row is None or row.is_deleted:
@@ -168,3 +189,57 @@ async def soft_delete_financial_record(
     await db.commit()
     await invalidate_dashboard_cache(redis)
     return MessageResponse(message="Record soft-deleted successfully")
+
+
+@router.get("/bin/records", response_model=DeletedFinancialRecordListResponse)
+async def list_deleted_financial_records(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DeletedFinancialRecordListResponse:
+    _assert_admin(current_user)
+    await _purge_expired_deleted_records(db)
+
+    filters = [FinancialRecord.is_deleted.is_(True)]
+    total_stmt = select(func.count(FinancialRecord.id)).where(*filters)
+    total = (await db.execute(total_stmt)).scalar_one()
+
+    stmt = (
+        select(FinancialRecord)
+        .where(*filters)
+        .order_by(FinancialRecord.deleted_at.desc(), FinancialRecord.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+
+    return DeletedFinancialRecordListResponse(
+        total=total,
+        offset=offset,
+        limit=limit,
+        items=[DeletedFinancialRecordOut.model_validate(row) for row in rows],
+    )
+
+
+@router.post("/bin/records/{record_id}/restore", response_model=FinancialRecordOut)
+async def restore_financial_record(
+    record_id: int,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(sensitive_route_limiter),
+) -> FinancialRecordOut:
+    _assert_admin(current_user)
+    await _purge_expired_deleted_records(db)
+
+    row = await db.get(FinancialRecord, record_id)
+    if row is None or not row.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted record not found")
+
+    row.is_deleted = False
+    row.deleted_at = None
+    await db.commit()
+    await db.refresh(row)
+    await invalidate_dashboard_cache(redis)
+    return FinancialRecordOut.model_validate(row)

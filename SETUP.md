@@ -34,6 +34,8 @@ Review and update values in .env as needed:
 - REDIS_HOST
 - REDIS_PORT
 - SECRET_KEY
+- ADMIN_BOOTSTRAP_KEY
+- RECYCLE_BIN_RETENTION_DAYS
 
 ## 3. Install Dependencies
 

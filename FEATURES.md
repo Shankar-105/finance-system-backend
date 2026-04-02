@@ -29,6 +29,8 @@ Behavior:
 - viewer: dashboard read access.
 - analyst: dashboard plus records read access.
 - admin: users admin routes and full financial records write access.
+- self-signup is viewer-only; analyst/admin assignment is admin-controlled.
+- first admin is created through one-time bootstrap key flow.
 
 RBAC is enforced via dependency guards, not frontend trust.
 
@@ -39,6 +41,8 @@ RBAC is enforced via dependency guards, not frontend trust.
 - Supports filtering by date range, category, and record type.
 - Supports pagination using offset and limit.
 - Soft delete keeps auditability without hard data loss.
+- Recycle bin endpoints allow admin listing and restoring deleted records.
+- Automatic purge removes records from recycle bin after retention window (default 30 days).
 
 ## 5. Dashboard Analytics APIs
 
@@ -94,7 +98,7 @@ Schema constraints include:
 
 ## 11. Test Suite and CI
 
-- 36 automated tests covering auth, RBAC, financial routes, dashboard routes, presence service, and route surface.
+- 47 automated tests covering auth, RBAC, admin account provisioning, financial routes, recycle-bin retention behavior, dashboard routes, presence service, and route surface.
 - Test isolation includes:
 - Separate test database lifecycle
 - Dependency-overridden async DB sessions
