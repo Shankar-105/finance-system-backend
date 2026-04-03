@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI, WebSocket
 
@@ -8,10 +9,13 @@ from app.routes import dashboard, financial_records, users
 from app.services.presence_service import handle_presence_socket
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.secret_key == "replace-with-strong-secret":
+        logger.warning("Using default SECRET_KEY placeholder. Set SECRET_KEY for non-local environments.")
     yield
     await close_connections()
 

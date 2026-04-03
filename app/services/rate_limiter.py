@@ -7,6 +7,14 @@ from redis.exceptions import RedisError
 from app.db import get_redis
 from app.oauth2 import decode_token
 
+INCREMENT_WITH_TTL_SCRIPT = """
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+	redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return current
+"""
+
 
 def fixed_window_rate_limiter(
 	key_prefix: str,
@@ -35,12 +43,18 @@ def fixed_window_rate_limiter(
 		key = f"{key_prefix}:{identity}:{path_key}"
 
 		try:
-			current = await redis.incr(key)
-			if current == 1:
-				await redis.expire(key, window_seconds)
+			try:
+				current = int(await redis.eval(INCREMENT_WITH_TTL_SCRIPT, 1, key, window_seconds))
+			except RedisError:
+				# Some test or managed Redis setups can disable scripting.
+				current = await redis.incr(key)
+				if current == 1:
+					await redis.expire(key, window_seconds)
 
 			if current > max_requests:
 				retry_after = await redis.ttl(key)
+				if retry_after <= 0:
+					retry_after = window_seconds
 				raise HTTPException(
 					status_code=429,
 					detail="Rate limit exceeded",

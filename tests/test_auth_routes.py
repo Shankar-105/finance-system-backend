@@ -1,4 +1,5 @@
 from httpx import AsyncClient
+import asyncio
 
 from app.config import get_settings
 
@@ -176,3 +177,17 @@ async def test_bootstrap_admin_works_once_with_valid_key(client: AsyncClient, mo
 
     monkeypatch.delenv("ADMIN_BOOTSTRAP_KEY", raising=False)
     get_settings.cache_clear()
+
+
+async def test_refresh_concurrent_requests_do_not_return_500(client: AsyncClient, user_factory):
+    user = await user_factory(role="admin")
+    old_refresh = user["tokens"]["refresh_token"]
+
+    async def do_refresh():
+        return await client.post("/api/v1/users/refresh", json={"refresh_token": old_refresh})
+
+    first, second = await asyncio.gather(do_refresh(), do_refresh())
+    statuses = {first.status_code, second.status_code}
+
+    assert 500 not in statuses
+    assert statuses.issubset({200, 401})

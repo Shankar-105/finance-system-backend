@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+import logging
 
+from sqlalchemy.dialects.postgresql import insert
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +17,8 @@ from app.oauth2 import (
 	verify_password,
 )
 from app.schemas import Token
+
+logger = logging.getLogger(__name__)
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
@@ -50,27 +55,27 @@ async def issue_token_pair(db: AsyncSession, user_id: int) -> Token:
 
 async def _blacklist_token(
 	db: AsyncSession,
-	redis: Redis,
+	redis: Redis | None,
 	jti: str,
 	token_type: str,
 	expires_at: datetime,
+	persist_db: bool = True,
 ) -> None:
-	existing = await db.scalar(select(TokenBlacklist).where(TokenBlacklist.jti == jti))
-	if existing is None:
-		db.add(
-			TokenBlacklist(
-				jti=jti,
-				token_type=token_type,
-				expires_at=expires_at,
-			)
+	if persist_db:
+		stmt = insert(TokenBlacklist).values(
+			jti=jti,
+			token_type=token_type,
+			expires_at=expires_at,
 		)
+		stmt = stmt.on_conflict_do_nothing(index_elements=[TokenBlacklist.jti])
+		await db.execute(stmt)
 
 	ttl_seconds = int((expires_at - datetime.now(timezone.utc)).total_seconds())
-	if ttl_seconds > 0:
+	if ttl_seconds > 0 and redis is not None:
 		try:
 			await redis.set(f"blacklist:{jti}", "1", ex=ttl_seconds)
-		except RedisError:
-			pass
+		except RedisError as exc:
+			logger.warning("Failed to write token blacklist to Redis for jti=%s: %s", jti, exc)
 
 
 async def refresh_access_pair(db: AsyncSession, redis: Redis, refresh_token: str) -> Token:
@@ -106,14 +111,27 @@ async def refresh_access_pair(db: AsyncSession, redis: Redis, refresh_token: str
 
 	await _blacklist_token(
 		db=db,
-		redis=redis,
+		redis=None,
 		jti=payload.jti,
 		token_type="refresh",
 		expires_at=exp_to_datetime(payload.exp),
 	)
 
 	await _store_refresh_token(db, user.id, new_refresh_token)
-	await db.commit()
+	try:
+		await db.commit()
+	except SQLAlchemyError as exc:
+		await db.rollback()
+		raise ValueError("Unable to refresh token at the moment") from exc
+
+	await _blacklist_token(
+		db=db,
+		redis=redis,
+		jti=payload.jti,
+		token_type="refresh",
+		expires_at=exp_to_datetime(payload.exp),
+		persist_db=False,
+	)
 
 	return Token(access_token=new_access_token, refresh_token=new_refresh_token)
 
