@@ -118,6 +118,20 @@ class DeletedFinancialRecordListResponse(BaseModel):
     items: list[DeletedFinancialRecordOut]
 
 
+class CSVImportRowError(BaseModel):
+    row_index: int
+    row_data: dict[str, str]
+    errors: list[str]
+
+
+class CSVImportResponse(BaseModel):
+    status: str
+    total_rows: int
+    imported_count: int
+    failed_count: int
+    errors: list[CSVImportRowError]
+
+
 class PaginationParams(BaseModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)

@@ -1,8 +1,8 @@
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from redis.asyncio import Redis
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -12,11 +12,18 @@ from app.models import FinancialRecord, RecordType, User, UserRole
 from app.schemas import (
     DeletedFinancialRecordListResponse,
     DeletedFinancialRecordOut,
+    CSVImportResponse,
     FinancialRecordCreate,
     FinancialRecordListResponse,
     FinancialRecordOut,
     FinancialRecordUpdate,
     MessageResponse,
+)
+from app.services.csv_service import (
+    CSVParseError,
+    parse_financial_records_csv,
+    serialize_financial_records_to_csv,
+    validate_financial_record_csv_rows,
 )
 from app.services.dashboard_service import invalidate_dashboard_cache
 
@@ -84,6 +91,7 @@ async def list_financial_records(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     category: str | None = Query(default=None, min_length=2, max_length=100),
+    search: str | None = Query(default=None, min_length=1, max_length=100),
     record_type: RecordType | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -101,6 +109,14 @@ async def list_financial_records(
         filters.append(FinancialRecord.entry_date <= end_date)
     if category:
         filters.append(FinancialRecord.category == category)
+    if search:
+        search_pattern = f"%{search}%"
+        filters.append(
+            or_(
+                FinancialRecord.category.ilike(search_pattern),
+                FinancialRecord.notes.ilike(search_pattern),
+            )
+        )
     if record_type:
         filters.append(FinancialRecord.record_type == RecordType(record_type.value))
 
@@ -121,6 +137,153 @@ async def list_financial_records(
         offset=offset,
         limit=limit,
         items=[FinancialRecordOut.model_validate(row) for row in rows],
+    )
+
+
+@router.get("/export")
+async def export_financial_records_csv(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    category: str | None = Query(default=None, min_length=2, max_length=100),
+    search: str | None = Query(default=None, min_length=1, max_length=100),
+    record_type: RecordType | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    _assert_can_read_records(current_user)
+    await _purge_expired_deleted_records(db)
+
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start_date cannot be after end_date")
+
+    filters = [FinancialRecord.is_deleted.is_(False)]
+    if start_date:
+        filters.append(FinancialRecord.entry_date >= start_date)
+    if end_date:
+        filters.append(FinancialRecord.entry_date <= end_date)
+    if category:
+        filters.append(FinancialRecord.category == category)
+    if search:
+        search_pattern = f"%{search}%"
+        filters.append(
+            or_(
+                FinancialRecord.category.ilike(search_pattern),
+                FinancialRecord.notes.ilike(search_pattern),
+            )
+        )
+    if record_type:
+        filters.append(FinancialRecord.record_type == RecordType(record_type.value))
+
+    stmt = (
+        select(FinancialRecord)
+        .where(*filters)
+        .order_by(FinancialRecord.entry_date.desc(), FinancialRecord.id.desc())
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+
+    csv_content = serialize_financial_records_to_csv(rows)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="financial_records_export.csv"'},
+    )
+
+
+@router.post("/import", response_model=CSVImportResponse)
+async def import_financial_records_csv(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(sensitive_route_limiter),
+) -> CSVImportResponse:
+    _assert_admin(current_user)
+    await _purge_expired_deleted_records(db)
+
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type != "text/csv":
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Content-Type must be text/csv")
+
+    raw_body = await request.body()
+    if not raw_body:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CSV body is empty")
+
+    try:
+        csv_text = raw_body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CSV must be UTF-8 encoded") from exc
+
+    try:
+        parsed_rows = parse_financial_records_csv(csv_text)
+    except CSVParseError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    valid_rows, errors = validate_financial_record_csv_rows(parsed_rows)
+
+    user_ids = {payload.user_id for _, payload, _ in valid_rows if payload.user_id is not None}
+    if user_ids:
+        existing_user_ids = set((await db.execute(select(User.id).where(User.id.in_(user_ids)))).scalars().all())
+        missing_user_ids = user_ids - existing_user_ids
+        if missing_user_ids:
+            retained_rows: list[tuple[int, FinancialRecordCreate, dict[str, str]]] = []
+            for row_index, payload, row_data in valid_rows:
+                if payload.user_id in missing_user_ids:
+                    errors.append(
+                        {
+                            "row_index": row_index,
+                            "row_data": row_data,
+                            "errors": ["Target user not found"],
+                        }
+                    )
+                else:
+                    retained_rows.append((row_index, payload, row_data))
+            valid_rows = retained_rows
+
+    imported_count = 0
+    if valid_rows:
+        created_rows = [
+            FinancialRecord(
+                amount=payload.amount,
+                record_type=RecordType(payload.record_type.value),
+                category=payload.category,
+                entry_date=payload.entry_date,
+                notes=payload.notes,
+                user_id=payload.user_id or current_user.id,
+            )
+            for _, payload, _ in valid_rows
+        ]
+        db.add_all(created_rows)
+        await db.commit()
+        imported_count = len(created_rows)
+        await invalidate_dashboard_cache(redis)
+
+    failed_count = len(errors)
+    if failed_count > 0 and imported_count > 0:
+        response.status_code = status.HTTP_207_MULTI_STATUS
+        status_value = "partial_success"
+    elif failed_count > 0:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        status_value = "failed"
+    else:
+        response.status_code = status.HTTP_201_CREATED
+        status_value = "success"
+
+    normalized_errors = [
+        {
+            "row_index": int(error["row_index"]),
+            "row_data": dict(error["row_data"]),
+            "errors": [str(item) for item in error["errors"]],
+        }
+        for error in errors
+    ]
+
+    return CSVImportResponse(
+        status=status_value,
+        total_rows=len(parsed_rows),
+        imported_count=imported_count,
+        failed_count=failed_count,
+        errors=normalized_errors,
     )
 
 
