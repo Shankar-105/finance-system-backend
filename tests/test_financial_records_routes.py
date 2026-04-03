@@ -1,3 +1,5 @@
+import csv
+import io
 from decimal import Decimal
 
 from httpx import AsyncClient
@@ -313,3 +315,140 @@ async def test_recycle_bin_auto_purges_after_retention(client: AsyncClient, user
 
     monkeypatch.delenv("RECYCLE_BIN_RETENTION_DAYS", raising=False)
     get_settings.cache_clear()
+
+
+async def test_export_csv_analyst_allowed(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    analyst = await user_factory(role="analyst")
+
+    created = await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(admin["tokens"]["access_token"]),
+        json={
+            "amount": "1000.00",
+            "record_type": "income",
+            "category": "salary",
+            "entry_date": "2026-04-08",
+            "notes": "paycheck",
+        },
+    )
+    assert created.status_code == 201
+
+    exported = await client.get(
+        "/api/v1/financial-records/export",
+        headers=_auth(analyst["tokens"]["access_token"]),
+    )
+    assert exported.status_code == 200
+    assert exported.headers["content-type"].startswith("text/csv")
+    assert "attachment;" in exported.headers.get("content-disposition", "")
+
+    rows = list(csv.DictReader(io.StringIO(exported.text)))
+    assert any(row["category"] == "salary" for row in rows)
+
+
+async def test_export_csv_viewer_forbidden(client: AsyncClient, user_factory):
+    viewer = await user_factory(role="viewer")
+
+    exported = await client.get(
+        "/api/v1/financial-records/export",
+        headers=_auth(viewer["tokens"]["access_token"]),
+    )
+    assert exported.status_code == 403
+
+
+async def test_export_csv_filters_by_category(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "40.00",
+            "record_type": "expense",
+            "category": "food",
+            "entry_date": "2026-04-08",
+            "notes": "meal",
+        },
+    )
+    await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "55.00",
+            "record_type": "expense",
+            "category": "transport",
+            "entry_date": "2026-04-08",
+            "notes": "taxi",
+        },
+    )
+
+    exported = await client.get(
+        "/api/v1/financial-records/export?category=food",
+        headers=_auth(token),
+    )
+    assert exported.status_code == 200
+
+    rows = list(csv.DictReader(io.StringIO(exported.text)))
+    assert rows
+    assert all(row["category"] == "food" for row in rows)
+
+
+async def test_import_csv_admin_success(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    csv_body = """amount,record_type,category,entry_date,notes
+100.50,income,salary,2026-04-08,monthly
+45.00,expense,food,2026-04-09,lunch
+"""
+
+    imported = await client.post(
+        "/api/v1/financial-records/import",
+        headers={**_auth(token), "Content-Type": "text/csv"},
+        content=csv_body,
+    )
+    assert imported.status_code == 201
+    payload = imported.json()
+    assert payload["status"] == "success"
+    assert payload["imported_count"] == 2
+    assert payload["failed_count"] == 0
+
+    listed = await client.get("/api/v1/financial-records", headers=_auth(token))
+    assert listed.status_code == 200
+    categories = [item["category"] for item in listed.json()["items"]]
+    assert "salary" in categories
+    assert "food" in categories
+
+
+async def test_import_csv_partial_success(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    csv_body = """amount,record_type,category,entry_date,notes
+120.00,income,salary,2026-04-08,ok row
+-30.00,expense,food,2026-04-09,bad amount
+"""
+
+    imported = await client.post(
+        "/api/v1/financial-records/import",
+        headers={**_auth(token), "Content-Type": "text/csv"},
+        content=csv_body,
+    )
+    assert imported.status_code == 207
+    payload = imported.json()
+    assert payload["status"] == "partial_success"
+    assert payload["imported_count"] == 1
+    assert payload["failed_count"] == 1
+    assert payload["errors"][0]["row_index"] == 3
+
+
+async def test_import_csv_requires_admin(client: AsyncClient, user_factory):
+    analyst = await user_factory(role="analyst")
+
+    imported = await client.post(
+        "/api/v1/financial-records/import",
+        headers={**_auth(analyst["tokens"]["access_token"]), "Content-Type": "text/csv"},
+        content="amount,record_type,category,entry_date\n100,income,salary,2026-04-08\n",
+    )
+    assert imported.status_code == 403
