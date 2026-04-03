@@ -148,6 +148,52 @@ async def test_filter_by_category(client: AsyncClient, user_factory):
     assert all(item["category"] == "food" for item in items)
 
 
+async def test_list_records_search_matches_notes_and_category(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "210.00",
+            "record_type": "expense",
+            "category": "groceries",
+            "entry_date": "2026-04-04",
+            "notes": "weekly supermarket",
+        },
+    )
+    await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "20.00",
+            "record_type": "expense",
+            "category": "travel",
+            "entry_date": "2026-04-04",
+            "notes": "metro commute",
+        },
+    )
+
+    notes_search = await client.get(
+        "/api/v1/financial-records?search=supermarket",
+        headers=_auth(token),
+    )
+    assert notes_search.status_code == 200
+    notes_items = notes_search.json()["items"]
+    assert notes_items
+    assert all("supermarket" in (item["notes"] or "") for item in notes_items)
+
+    category_search = await client.get(
+        "/api/v1/financial-records?search=travel",
+        headers=_auth(token),
+    )
+    assert category_search.status_code == 200
+    category_items = category_search.json()["items"]
+    assert category_items
+    assert all(item["category"] == "travel" for item in category_items)
+
+
 async def test_invalid_date_range_returns_400(client: AsyncClient, user_factory):
     admin = await user_factory(role="admin")
     token = admin["tokens"]["access_token"]
@@ -392,6 +438,44 @@ async def test_export_csv_filters_by_category(client: AsyncClient, user_factory)
     rows = list(csv.DictReader(io.StringIO(exported.text)))
     assert rows
     assert all(row["category"] == "food" for row in rows)
+
+
+async def test_export_csv_supports_search(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "120.00",
+            "record_type": "expense",
+            "category": "office",
+            "entry_date": "2026-04-08",
+            "notes": "printer supplies",
+        },
+    )
+    await client.post(
+        "/api/v1/financial-records",
+        headers=_auth(token),
+        json={
+            "amount": "75.00",
+            "record_type": "expense",
+            "category": "food",
+            "entry_date": "2026-04-08",
+            "notes": "team lunch",
+        },
+    )
+
+    exported = await client.get(
+        "/api/v1/financial-records/export?search=printer",
+        headers=_auth(token),
+    )
+    assert exported.status_code == 200
+
+    rows = list(csv.DictReader(io.StringIO(exported.text)))
+    assert rows
+    assert all("printer" in (row["notes"] or "") or "printer" in row["category"] for row in rows)
 
 
 async def test_import_csv_admin_success(client: AsyncClient, user_factory):

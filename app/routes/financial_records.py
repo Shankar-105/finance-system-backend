@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from redis.asyncio import Redis
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -91,6 +91,7 @@ async def list_financial_records(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     category: str | None = Query(default=None, min_length=2, max_length=100),
+    search: str | None = Query(default=None, min_length=1, max_length=100),
     record_type: RecordType | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -108,6 +109,14 @@ async def list_financial_records(
         filters.append(FinancialRecord.entry_date <= end_date)
     if category:
         filters.append(FinancialRecord.category == category)
+    if search:
+        search_pattern = f"%{search}%"
+        filters.append(
+            or_(
+                FinancialRecord.category.ilike(search_pattern),
+                FinancialRecord.notes.ilike(search_pattern),
+            )
+        )
     if record_type:
         filters.append(FinancialRecord.record_type == RecordType(record_type.value))
 
@@ -136,6 +145,7 @@ async def export_financial_records_csv(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     category: str | None = Query(default=None, min_length=2, max_length=100),
+    search: str | None = Query(default=None, min_length=1, max_length=100),
     record_type: RecordType | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -153,6 +163,14 @@ async def export_financial_records_csv(
         filters.append(FinancialRecord.entry_date <= end_date)
     if category:
         filters.append(FinancialRecord.category == category)
+    if search:
+        search_pattern = f"%{search}%"
+        filters.append(
+            or_(
+                FinancialRecord.category.ilike(search_pattern),
+                FinancialRecord.notes.ilike(search_pattern),
+            )
+        )
     if record_type:
         filters.append(FinancialRecord.record_type == RecordType(record_type.value))
 
