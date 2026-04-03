@@ -24,16 +24,23 @@ Modern async finance backend with secure auth, role-based access control, analyt
 
 ## 📘 Documentation
 
-- Full Features Documented: [docs/FEATURES.md](docs/FEATURES.md)
-- Complete API Endpoints reference: [docs/API_GUIDE.md](docs/API_GUIDE.md)
-- Dashboard deep-dive: [docs/DASHBOARD_GUIDE.md](docs/DASHBOARD_GUIDE.md)
-- Setup guide: [docs/SETUP.md](docs/SETUP.md)
-- Testing guide using pytests: [docs/TESTS.md](docs/TESTS.md)
-- Contribution guide: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- **Full Features Documented**: [docs/FEATURES.md](docs/FEATURES.md)
+- **Complete API Endpoints reference**: [docs/API_GUIDE.md](docs/API_GUIDE.md)
+- **Setup guide**: [docs/SETUP.md](docs/SETUP.md)
+- **Testing guide using pytests**: [docs/TESTS.md](docs/TESTS.md)
+- **Contribution guide**: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- **Deployment & CI/CD Pipeline:** [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md)
 
 ---
-## ⚙️ CI
 
-GitHub Actions workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
+## 📝 Project Context
 
-Runs service containers, installs dependencies, validates connectivity, and executes the full test suite on push and pull request.
+This repository was developed as part of an internship assessment by [Zorvyn Fintech](https://zorvyn.io/) focused on secure backend engineering, role-based access control, and practical financial data workflows.
+
+## ⚖️ Technology Choice
+
+I thought to build this in Spring Boot because it is widely used in enterprise financial systems. But for this assessment, development speed mattered most, and I am currently much stronger with FastAPI and async Python. So I chose FastAPI to deliver a cleaner and more complete implementation within the timeline, while still following production-style backend practices.
+
+## 🙏 Acknowledgement
+
+"I am genuinely thankful for this problem statement. Building it end-to-end gave me practical experience with RBAC. While I have previously explored caching, rate-limiting, and other system design concepts in my past projects, I had never worked on an RBAC project before, and this gave me great experience truly thankful.

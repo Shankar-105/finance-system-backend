@@ -1,118 +1,148 @@
-# Features
+# ✨ Features Overview
 
-Comprehensive feature overview for the Finance Data Processing and Access Control Backend.
+Comprehensive feature map for the Finance Data Processing and Access Control Backend.
 
-## 1. Async-First Architecture
+> Built for secure finance operations, clean access control, and analytics-ready workflows.
 
-- All route handlers use async functions.
-- PostgreSQL access is fully async with SQLAlchemy AsyncSession and asyncpg.
-- Redis operations use redis asyncio client.
-- CPU-bound operations (password hashing and JWT operations) are offloaded with asyncio.to_thread.
+---
 
-## 2. Secure JWT Authentication
+## ⚙️ 1) Async-First Architecture
 
-- Access and refresh token pair issued on login.
-- Refresh token rotation on each refresh request.
-- Token revocation supported with jti blacklist.
-- Revocation state persisted in database and mirrored in Redis for fast lookup.
+- All route handlers are async
+- PostgreSQL access is fully async with SQLAlchemy AsyncSession and asyncpg
+- Redis operations use redis asyncio client
+- CPU-heavy tasks (password hashing and JWT operations) are offloaded with `asyncio.to_thread`
 
-## 3. Role-Based Access Control
+---
 
-Roles:
+## 🔐 2) Secure JWT Authentication
 
-- viewer
-- analyst
-- admin
+- Access + refresh token pair issued on login
+- Refresh token rotation on each refresh request
+- Token revocation via `jti` blacklist
+- Revocation state stored in database and mirrored in Redis for fast lookup
 
-Behavior:
+---
 
-- viewer: dashboard read access.
-- analyst: dashboard plus records read access.
-- admin: users admin routes and full financial records write access.
-- self-signup is viewer-only; analyst/admin role governance is admin-controlled.
-- first admin is created through one-time bootstrap key flow.
+## 🛡️ 3) Role-Based Access Control (RBAC)
 
-RBAC is enforced via dependency guards, not frontend trust.
+### Roles
 
-## 4. Financial Records Management
+- `viewer`
+- `analyst`
+- `admin`
 
-- Create, list, retrieve, update, soft delete financial records.
-- Fields include amount, type, category, date, notes, user id.
-- Supports filtering by date range, category, and record type.
-- Supports pagination using offset and limit.
-- Soft delete keeps auditability without hard data loss.
-- Recycle bin endpoints allow admin listing and restoring deleted records.
-- Automatic purge removes records from recycle bin after retention window (default 30 days).
+### Access Behavior
 
-## 5. Dashboard Analytics APIs
+- `viewer`: dashboard read access
+- `analyst`: dashboard + records read access
+- `admin`: user-management routes + full financial write access
+- self-signup is viewer-only; privileged role assignment is admin-controlled
+- first admin is provisioned through one-time bootstrap key flow
 
-- Summary totals endpoint for at-a-glance KPI cards:
-- total income
-- total expenses
-- net balance
-- Category totals endpoint for composition analysis.
-- Recent activity endpoint for operational visibility.
-- Monthly trends endpoint for trend monitoring and forecasting workflows.
-- Date-range filtering across analytics endpoints for period slicing.
-- Input validation prevents invalid date windows.
-- Dashboard service centralizes metric computations for consistency.
-- Role-aware read access for viewer, analyst, and admin.
+RBAC is enforced through backend dependency guards, not frontend trust.
 
-## 6. Redis Caching
+---
 
-- Dashboard aggregate endpoints are cached with TTL.
-- Cache invalidation occurs on financial record mutations.
-- Cache invalidation also occurs on recycle-bin restore operations.
-- Graceful fallback to DB computation if cache backend is unavailable.
+## 💸 4) Financial Records Management
 
-## 7. Rate Limiting
+- Create, list, retrieve, update, and soft delete financial records
+- Core fields: amount, type, category, date, notes, user id
+- Filters: date range, category, record type
+- Pagination with offset and limit
+- Soft delete for auditability (no immediate hard loss)
+- Recycle-bin endpoints for admin listing and restoring deleted records
+- Automatic purge for expired recycle-bin records (default retention: 30 days)
 
-- Fixed-window limiter implemented with Redis INCR and EXPIRE.
-- Applied to sensitive routes (register, login, refresh, logout, and record mutations).
-- Returns 429 with Retry-After when threshold is exceeded.
-- Returns controlled 503 when limiter backend is unavailable.
+---
 
-## 8. Presence WebSocket
+## 📊 5) Dashboard Analytics APIs
 
-- Endpoint: /ws/presence
-- Requires access token in query parameter.
-- Application-level heartbeat support with ping and heartbeat_ack events.
-- Online/offline presence tracked in Redis with TTL.
-- Admin endpoint exposes current online user ids.
+- Summary totals for KPI cards:
+  - total income
+  - total expenses
+  - net balance
+- Category totals for composition analysis
+- Recent activity feed for operational visibility
+- Monthly trends endpoint for period analytics and forecasting workflows
+- Date-range filtering across analytics endpoints
+- Input validation for invalid date windows
+- Centralized dashboard service for consistent metric computation
+- Role-aware read access for viewer, analyst, and admin
 
-## 9. Data Modeling and Persistence
+---
+
+## ⚡ 6) Redis Caching
+
+- Dashboard aggregate endpoints are cached with TTL
+- Cache invalidates on financial record mutations
+- Cache invalidates on recycle-bin restore operations
+- Graceful fallback to database computation if cache backend is unavailable
+
+---
+
+## 🚦 7) Rate Limiting
+
+- Fixed-window limiter with Redis `INCR` + `EXPIRE`
+- Applied to sensitive routes (register, login, refresh, logout, record mutations)
+- Returns `429` with `Retry-After` on threshold exceed
+- Returns controlled `503` when limiter backend is unavailable
+
+---
+
+## 🟢 8) Presence WebSocket
+
+- Endpoint: `/ws/presence`
+- Requires access token in query parameter
+- Application-level heartbeat with `ping` and `heartbeat_ack`
+- Online/offline presence tracked in Redis using TTL
+- Admin endpoint can fetch online user IDs
+
+---
+
+## 🗃️ 9) Data Modeling And Persistence
 
 - SQLAlchemy 2 model layer with explicit enums:
-- UserRole enum
-- RecordType enum
+  - `UserRole`
+  - `RecordType`
 - Core entities:
-- users
-- financial_records
-- refresh_tokens
-- token_blacklist
+  - `users`
+  - `financial_records`
+  - `refresh_tokens`
+  - `token_blacklist`
 
-Schema constraints include:
+### Schema Constraints
 
-- Positive amount check
-- Unique user email/username
-- Token uniqueness on jti
-- Indexed columns for common read patterns
+- positive amount check
+- unique user email/username
+- token uniqueness on `jti`
+- indexed columns for common read paths
 
-## 10. Migrations
+---
 
-- Alembic configured for async engine metadata.
-- Initial migration creates enums, tables, constraints, and indexes.
+## 🔁 10) Migrations
 
-## 11. Test Suite and CI
+- Alembic configured for async engine metadata
+- Initial migration creates enums, tables, constraints, and indexes
 
-- 47 automated tests covering auth, RBAC, admin account provisioning, financial routes, recycle-bin retention behavior, dashboard routes, presence service, and route surface.
+---
+
+## 🧪 11) Test Suite And CI
+
+- 47 automated tests covering auth, RBAC, admin bootstrap, financial routes, recycle-bin retention, dashboard routes, presence service, and route surface
 - Test isolation includes:
-- Separate test database lifecycle
-- Dependency-overridden async DB sessions
-- fakeredis-backed Redis isolation
-- CI workflow runs tests on every push and pull request with service containers.
+  - separate test database lifecycle
+  - dependency-overridden async DB sessions
+  - fakeredis-backed Redis isolation
+- CI runs tests on every push and pull request with service containers
 
-## 12. Documentation Quality
+---
 
-- Dedicated docs provided for setup, API usage, testing, contribution workflow, and feature architecture.
-- Dedicated dashboard guide describes KPI design, endpoint strategy, and extension roadmap.
+## 📚 12) Documentation Coverage
+
+Dedicated guides are available for:
+
+- Setup
+- API usage
+- testing strategy
+- contribution workflow

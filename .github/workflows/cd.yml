@@ -1,18 +1,13 @@
 name: CD
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - CI
     types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-  push:
+      - completed
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,7 +20,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -37,7 +32,7 @@ jobs:
             const response = await github.rest.repos.createDeployment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: context.sha,
+              ref: context.payload.workflow_run.head_sha,
               environment: "production",
               auto_merge: false,
               required_contexts: [],
@@ -55,7 +50,7 @@ jobs:
               repo: context.repo.repo,
               deployment_id: Number("${{ steps.create_deployment.outputs.deployment_id }}"),
               state: "in_progress",
-              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.payload.workflow_run.id}`,
               description: "Render deploy started"
             });
 
@@ -80,7 +75,7 @@ jobs:
               repo: context.repo.repo,
               deployment_id: Number("${{ steps.create_deployment.outputs.deployment_id }}"),
               state: "success",
-              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.payload.workflow_run.id}`,
               description: "Render deploy hook triggered successfully"
             });
 
@@ -94,6 +89,6 @@ jobs:
               repo: context.repo.repo,
               deployment_id: Number("${{ steps.create_deployment.outputs.deployment_id }}"),
               state: "failure",
-              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.payload.workflow_run.id}`,
               description: "Render deploy failed"
             });
