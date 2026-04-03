@@ -11,6 +11,14 @@ Modern async finance backend with secure auth, role-based access control, analyt
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Tests](https://img.shields.io/badge/Tests-47%20Passing-success)
 
+## 🔥 Start Here: App Workflow
+
+If you want to understand how this backend actually behaves from login to role-based usage, read:
+
+**[docs/BASIC_FLOW.md](docs/BASIC_FLOW.md)**
+
+It explains the real journey for `viewer`, `analyst`, and `admin`, including auth lifecycle, record lifecycle, dashboard usage order, and websocket presence flow.
+
 ## 🌟 What You Get
 
 - Secure JWT auth with refresh rotation and revocation.
@@ -43,4 +51,4 @@ I thought to build this in Spring Boot because it is widely used in enterprise f
 
 ## 🙏 Acknowledgement
 
-"I am genuinely thankful for this problem statement. Building it end-to-end gave me practical experience with RBAC. While I have previously explored caching, rate-limiting, and other system design concepts in my past projects, I had never worked on an RBAC project before, and this gave me great experience truly thankful.
+I am genuinely thankful for this problem statement. Building it end-to-end gave me practical experience with RBAC. While I have previously explored caching, rate-limiting, and other system design concepts in my past projects, I had never worked on an RBAC project before, and this gave me great experience truly thankful.
