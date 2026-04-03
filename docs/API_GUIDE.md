@@ -2,7 +2,7 @@
 
 Comprehensive endpoint reference for the Finance Data Processing and Access Control Backend.
 
-> ⚡ Quick context: this service exposes 20 REST endpoints + 1 WebSocket endpoint under `/api/v1`.
+> ⚡ Quick context: this service exposes 22 REST endpoints + 1 WebSocket endpoint under `/api/v1`.
 
 ---
 
@@ -10,7 +10,7 @@ Comprehensive endpoint reference for the Finance Data Processing and Access Cont
 
 | Type | Count |
 |---|---|
-| REST Endpoints | 20 |
+| REST Endpoints | 22 |
 | WebSocket Endpoints | 1 |
 | API Prefix | `/api/v1` |
 
@@ -317,6 +317,7 @@ Query params:
 - `start_date`
 - `end_date`
 - `category`
+- `search` (matches `category` and `notes`, case-insensitive)
 - `record_type` (`income` or `expense`)
 
 Validation rule:
@@ -365,6 +366,37 @@ Example request body:
   "notes": "updated"
 }
 ```
+
+### `GET /api/v1/financial-records/export`
+
+- Auth: Analyst or Admin
+- Purpose: Export records as CSV for reporting
+- Query params: `start_date`, `end_date`, `category`, `search`, `record_type`
+
+Behavior:
+
+- Returns `text/csv` with attachment headers
+- Applies same filtering logic as records listing
+
+### `POST /api/v1/financial-records/import`
+
+- Auth: Admin only
+- Rate limited: Yes
+- Purpose: Bulk import financial records from CSV payload
+- Content-Type: `text/csv`
+
+CSV headers:
+
+- Required: `amount`, `record_type`, `category`, `entry_date`
+- Optional: `notes`, `user_id`
+
+Behavior:
+
+- Supports partial success: valid rows are imported, invalid rows are returned with row-level errors
+- Status codes:
+  - `201` when all rows are valid
+  - `207` when rows are mixed valid and invalid
+  - `400` when all rows are invalid
 
 ### `DELETE /api/v1/financial-records/{record_id}`
 
