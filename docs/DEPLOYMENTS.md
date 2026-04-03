@@ -44,9 +44,8 @@ The application uses **two automated GitHub Actions workflows**:
 **File:** [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
 ### When It Runs
-- On **every push** to any branch
-- On **every pull request** to any branch
-- Manually via `workflow_dispatch`
+- On **push to `main`**
+- On **pull requests targeting `main`**
 
 ### What It Does
 
@@ -70,9 +69,9 @@ The application uses **two automated GitHub Actions workflows**:
 **File:** [.github/workflows/cd.yml](.github/workflows/cd.yml)
 
 ### When It Runs
-- **Only on push to `main` branch** (after PR merge)
-- Manually via `workflow_dispatch` with GitHub token
-- **NOT on pull requests** (intentional—promotes safety)
+- **Only after the CI workflow completes successfully on `main`**
+- Triggered by the GitHub Actions `workflow_run` event
+- **Not on pull requests**
 
 ### What It Does
 
