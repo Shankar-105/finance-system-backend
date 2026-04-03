@@ -12,16 +12,16 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
-    database_host: str = "localhost"
-    database_port: int = 5432
-    database_name: str = "finance_db"
-    database_user: str = "postgres"
-    database_password: str = "iota143"
+    database_host: str
+    database_port: int
+    database_name: str
+    database_user: str
+    database_password: str
 
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    redis_db: int = 0
-    redis_password: str | None = None
+    redis_host: str
+    redis_port: int
+    redis_db: int
+    redis_password: str | None
 
     secret_key: str = "replace-with-strong-secret"
     algorithm: str = "HS256"

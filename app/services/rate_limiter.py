@@ -5,6 +5,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.db import get_redis
+from app.oauth2 import decode_token
 
 
 def fixed_window_rate_limiter(
@@ -17,8 +18,21 @@ def fixed_window_rate_limiter(
 		redis: Redis = Depends(get_redis),
 	) -> None:
 		client_ip = request.client.host if request.client else "unknown"
+		identity = f"ip:{client_ip}"
+
+		authorization = request.headers.get("authorization", "")
+		if authorization.lower().startswith("bearer "):
+			token = authorization.split(" ", 1)[1].strip()
+			try:
+				payload = await decode_token(token)
+				if payload.typ == "access" and payload.sub:
+					identity = f"user:{payload.sub}"
+			except ValueError:
+				# Fall back to IP-based limiting for invalid/expired tokens.
+				pass
+
 		path_key = request.url.path.replace("/", "_")
-		key = f"{key_prefix}:{client_ip}:{path_key}"
+		key = f"{key_prefix}:{identity}:{path_key}"
 
 		try:
 			current = await redis.incr(key)
