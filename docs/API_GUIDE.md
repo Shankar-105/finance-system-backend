@@ -1,36 +1,44 @@
-# API Guide
+# 📘 API Guide
 
 Comprehensive endpoint reference for the Finance Data Processing and Access Control Backend.
 
-## At a Glance
+> ⚡ Quick context: this service exposes 20 REST endpoints + 1 WebSocket endpoint under `/api/v1`.
+
+---
+
+## 🧭 At A Glance
 
 | Type | Count |
-|------|-------|
+|---|---|
 | REST Endpoints | 20 |
 | WebSocket Endpoints | 1 |
-| API Prefix | /api/v1 |
+| API Prefix | `/api/v1` |
 
-Base URL (local): http://127.0.0.1:8000
+**Base URL (local):** `http://127.0.0.1:8000`
 
-OpenAPI Docs:
+**Interactive docs:**
 
-- Swagger: http://127.0.0.1:8000/docs
-- ReDoc: http://127.0.0.1:8000/redoc
+- Swagger: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
 
-## Before You Start
+---
 
-1. Finish setup from SETUP.md.
-2. Ensure PostgreSQL and Redis are running.
-3. Apply migrations using alembic upgrade head.
+## ✅ Before You Start
 
-## Authentication Model
+1. Finish setup from [SETUP.md](SETUP.md)
+2. Ensure PostgreSQL and Redis are running
+3. Apply migrations using `alembic upgrade head`
+
+---
+
+## 🔐 Authentication Model
 
 The system uses JWT access and refresh tokens.
 
-- Access token: sent in Authorization header.
-- Refresh token: used in refresh endpoint.
-- Refresh rotation: old refresh token is revoked when a new pair is issued.
-- Revocation checks: Redis plus database blacklist.
+- Access token: sent in Authorization header
+- Refresh token: used in refresh endpoint
+- Refresh rotation: old refresh token is revoked when a new pair is issued
+- Revocation checks: Redis plus database blacklist
 
 Authorization header format:
 
@@ -38,19 +46,23 @@ Authorization header format:
 Authorization: Bearer <access_token>
 ```
 
-## Role Model
+---
+
+## 👥 Role Model
 
 | Role | Allowed Actions |
-|------|------------------|
+|---|---|
 | viewer | Read dashboard only |
 | analyst | Read dashboard and financial records |
 | admin | Full access to users and financial records |
 
-## Error Codes You Will Commonly See
+---
+
+## 🚨 Common Error Codes
 
 | Status | Meaning |
-|--------|---------|
-| 400 | Invalid request data, e.g. start_date > end_date |
+|---|---|
+| 400 | Invalid request data, e.g. `start_date > end_date` |
 | 401 | Missing/invalid/expired/revoked token |
 | 403 | Role does not have permission |
 | 404 | Resource not found |
@@ -58,9 +70,11 @@ Authorization: Bearer <access_token>
 | 429 | Rate limit exceeded |
 | 503 | Rate limiter backend unavailable |
 
-## Health Endpoint
+---
 
-### GET /health
+## ❤️ Health Endpoint
+
+### `GET /health`
 
 - Auth: No
 - Purpose: Service health check
@@ -73,9 +87,11 @@ Response:
 }
 ```
 
-## Users and Auth Endpoints
+---
 
-### POST /api/v1/users/register
+## 👤 Users And Auth Endpoints
+
+### `POST /api/v1/users/register`
 
 - Auth: No
 - Rate limited: Yes
@@ -94,9 +110,9 @@ Request body:
 
 Security note:
 
-- Self-registration is restricted to `viewer` role.
-- Sending `analyst` or `admin` in signup returns 403.
-- Privileged roles are assigned through admin-only management endpoint.
+- Self-registration is restricted to `viewer` role
+- Sending `analyst` or `admin` in signup returns 403
+- Privileged roles are assigned through admin-only management endpoint
 
 Responses:
 
@@ -104,7 +120,7 @@ Responses:
 - 409 Conflict when email or username already exists
 - 403 Forbidden when role is analyst or admin
 
-### POST /api/v1/users/bootstrap-admin
+### `POST /api/v1/users/bootstrap-admin`
 
 - Auth: No
 - Rate limited: Yes
@@ -112,9 +128,9 @@ Responses:
 
 Requirements:
 
-- Environment variable `ADMIN_BOOTSTRAP_KEY` must be configured.
-- Header `X-Bootstrap-Key` must exactly match the configured key.
-- Endpoint is one-time: blocked once any admin already exists.
+- Environment variable `ADMIN_BOOTSTRAP_KEY` must be configured
+- Header `X-Bootstrap-Key` must exactly match the configured key
+- Endpoint is one-time: blocked once any admin already exists
 
 Request body example:
 
@@ -129,9 +145,9 @@ Request body example:
 
 Notes:
 
-- Request role is ignored; created user is always `admin`.
+- Request role is ignored; created user is always `admin`
 
-### PATCH /api/v1/users/admin/users/{user_id}
+### `PATCH /api/v1/users/admin/users/{user_id}`
 
 - Auth: Admin only
 - Purpose: Update user role and/or active status
@@ -145,7 +161,7 @@ Request body example:
 }
 ```
 
-### POST /api/v1/users/admin/users
+### `POST /api/v1/users/admin/users`
 
 - Auth: Admin only
 - Purpose: Admin creates viewer or analyst account with initial credentials
@@ -163,10 +179,10 @@ Request body example:
 
 Notes:
 
-- This endpoint intentionally blocks direct `admin` creation.
-- Use role update flow for controlled admin promotion.
+- This endpoint intentionally blocks direct `admin` creation
+- Use role update flow for controlled admin promotion
 
-### POST /api/v1/users/login
+### `POST /api/v1/users/login`
 
 - Auth: No
 - Rate limited: Yes
@@ -191,7 +207,7 @@ Response:
 }
 ```
 
-### POST /api/v1/users/refresh
+### `POST /api/v1/users/refresh`
 
 - Auth: No
 - Rate limited: Yes
@@ -210,7 +226,7 @@ Responses:
 - 200 OK with new token pair
 - 401 Unauthorized for revoked, reused, or invalid refresh token
 
-### POST /api/v1/users/logout
+### `POST /api/v1/users/logout`
 
 - Auth: Access token required
 - Rate limited: Yes
@@ -232,12 +248,12 @@ Response:
 }
 ```
 
-### GET /api/v1/users/me
+### `GET /api/v1/users/me`
 
 - Auth: Access token required
 - Purpose: Fetch current authenticated user profile
 
-### GET /api/v1/users/admin/ping
+### `GET /api/v1/users/admin/ping`
 
 - Auth: Admin only
 - Purpose: Verify admin-level authorization
@@ -250,7 +266,7 @@ Response:
 }
 ```
 
-### GET /api/v1/users/admin/online-users
+### `GET /api/v1/users/admin/online-users`
 
 - Auth: Admin only
 - Purpose: List currently online users tracked by presence subsystem
@@ -261,9 +277,11 @@ Response:
 [1, 2, 10]
 ```
 
-## Financial Records Endpoints
+---
 
-### POST /api/v1/financial-records
+## 💰 Financial Records Endpoints
+
+### `POST /api/v1/financial-records`
 
 - Auth: Admin only
 - Rate limited: Yes
@@ -284,26 +302,26 @@ Request body:
 
 Notes:
 
-- user_id is optional.
-- If omitted, record is created for current admin user.
+- `user_id` is optional
+- If omitted, record is created for current admin user
 
-### GET /api/v1/financial-records
+### `GET /api/v1/financial-records`
 
 - Auth: Analyst or Admin
 - Purpose: List records with pagination and filters
 
 Query params:
 
-- offset (default 0)
-- limit (default 20, max 100)
-- start_date
-- end_date
-- category
-- record_type (income or expense)
+- `offset` (default 0)
+- `limit` (default 20, max 100)
+- `start_date`
+- `end_date`
+- `category`
+- `record_type` (`income` or `expense`)
 
 Validation rule:
 
-- start_date cannot be after end_date.
+- `start_date` cannot be after `end_date`
 
 Response shape:
 
@@ -328,12 +346,12 @@ Response shape:
 }
 ```
 
-### GET /api/v1/financial-records/{record_id}
+### `GET /api/v1/financial-records/{record_id}`
 
 - Auth: Analyst or Admin
 - Purpose: Fetch one record by id
 
-### PATCH /api/v1/financial-records/{record_id}
+### `PATCH /api/v1/financial-records/{record_id}`
 
 - Auth: Admin only
 - Rate limited: Yes
@@ -348,7 +366,7 @@ Example request body:
 }
 ```
 
-### DELETE /api/v1/financial-records/{record_id}
+### `DELETE /api/v1/financial-records/{record_id}`
 
 - Auth: Admin only
 - Rate limited: Yes
@@ -356,38 +374,40 @@ Example request body:
 
 Behavior:
 
-- Sets is_deleted true and deleted_at timestamp.
-- Deleted records are excluded from standard reads.
-- Deleted records are retained in recycle bin up to configured retention days (default 30).
+- Sets `is_deleted` true and `deleted_at` timestamp
+- Deleted records are excluded from standard reads
+- Deleted records are retained in recycle bin up to configured retention days (default 30)
 
-### GET /api/v1/financial-records/bin/records
+### `GET /api/v1/financial-records/bin/records`
 
 - Auth: Admin only
 - Purpose: List soft-deleted records currently in recycle bin
-- Query params: offset, limit
+- Query params: `offset`, `limit`
 
-### POST /api/v1/financial-records/bin/records/{record_id}/restore
+### `POST /api/v1/financial-records/bin/records/{record_id}/restore`
 
 - Auth: Admin only
 - Purpose: Restore a soft-deleted record from recycle bin
 
 Retention policy:
 
-- Records older than configured retention window are automatically purged.
-- Expired records are not restorable.
+- Records older than configured retention window are automatically purged
+- Expired records are not restorable
 
-## Dashboard Endpoints
+---
 
-All dashboard endpoints require any authenticated role: viewer, analyst, or admin.
+## 📊 Dashboard Endpoints
+
+All dashboard endpoints require any authenticated role: `viewer`, `analyst`, or `admin`.
 
 ### Dashboard Endpoint Matrix
 
 | Endpoint | Main Use | Typical Widget |
 |---|---|---|
-| GET /api/v1/dashboard/summary | KPI snapshot | Income/Expense/Net cards |
-| GET /api/v1/dashboard/categories | Spend or income composition | Category pie/bar |
-| GET /api/v1/dashboard/recent-activity | Latest changes | Recent activity table |
-| GET /api/v1/dashboard/monthly-trends | Time-series behavior | Multi-line trend chart |
+| `GET /api/v1/dashboard/summary` | KPI snapshot | Income/Expense/Net cards |
+| `GET /api/v1/dashboard/categories` | Spend or income composition | Category pie/bar |
+| `GET /api/v1/dashboard/recent-activity` | Latest changes | Recent activity table |
+| `GET /api/v1/dashboard/monthly-trends` | Time-series behavior | Multi-line trend chart |
 
 ### Role-Based Dashboard Consumption
 
@@ -397,10 +417,10 @@ All dashboard endpoints require any authenticated role: viewer, analyst, or admi
 | analyst | KPI + category + trend analysis |
 | admin | Same analytics plus operational actions elsewhere |
 
-### GET /api/v1/dashboard/summary
+### `GET /api/v1/dashboard/summary`
 
 - Purpose: total income, total expenses, net balance
-- Query params: start_date, end_date
+- Query params: `start_date`, `end_date`
 
 Response:
 
@@ -412,10 +432,10 @@ Response:
 }
 ```
 
-### GET /api/v1/dashboard/categories
+### `GET /api/v1/dashboard/categories`
 
 - Purpose: category-wise totals
-- Query params: start_date, end_date
+- Query params: `start_date`, `end_date`
 
 Response:
 
@@ -432,15 +452,15 @@ Response:
 ]
 ```
 
-### GET /api/v1/dashboard/recent-activity
+### `GET /api/v1/dashboard/recent-activity`
 
 - Purpose: recent financial records ordered by newest
-- Query params: limit (default 10, max 50)
+- Query params: `limit` (default 10, max 50)
 
-### GET /api/v1/dashboard/monthly-trends
+### `GET /api/v1/dashboard/monthly-trends`
 
 - Purpose: monthly grouped income and expense trends
-- Query params: start_date, end_date
+- Query params: `start_date`, `end_date`
 
 Response:
 
@@ -485,39 +505,43 @@ The current implementation already provides a strong 4-endpoint base. Typical pr
 
 These are recommendations and are not part of the currently implemented route set.
 
-## WebSocket Presence API
+---
 
-### WS /ws/presence?token=<access_token>
+## 🔌 WebSocket Presence API
+
+### `WS /ws/presence?token=<access_token>`
 
 - Auth: Access token in query parameter
-- Purpose: track online/offline state and heartbeat
+- Purpose: Track online/offline state and heartbeat
 
 Client message examples:
 
-- ping
-- pong
-- heartbeat
+- `ping`
+- `pong`
+- `heartbeat`
 
 Server message examples:
 
-- {"type": "heartbeat_ack", "status": "ok"}
-- {"type": "ping"}
-- {"type": "echo", "message": "..."}
+- `{ "type": "heartbeat_ack", "status": "ok" }`
+- `{ "type": "ping" }`
+- `{ "type": "echo", "message": "..." }`
 
 Presence behavior:
 
-- On connect, user marked online in Redis with TTL.
-- Server sends ping when idle for heartbeat interval.
-- On disconnect, user marked offline.
+- On connect, user marked online in Redis with TTL
+- Server sends ping when idle for heartbeat interval
+- On disconnect, user marked offline
 
-## Practical Testing Order for Evaluators
+---
 
-1. Bootstrap first admin user.
-2. Login and capture access and refresh token.
-3. Call users/me.
-4. Create analyst account via admin endpoint.
-5. Create income and expense records.
-6. Soft delete a record, inspect recycle bin, then restore.
-7. Call dashboard summary and categories.
-8. Refresh token and verify old refresh token is rejected on reuse.
-9. Logout and verify old access token no longer works.
+## 🧪 Practical Testing Order For Evaluators
+
+1. Bootstrap first admin user
+2. Login and capture access and refresh token
+3. Call `users/me`
+4. Create analyst account via admin endpoint
+5. Create income and expense records
+6. Soft delete a record, inspect recycle bin, then restore
+7. Call dashboard summary and categories
+8. Refresh token and verify old refresh token is rejected on reuse
+9. Logout and verify old access token no longer works
