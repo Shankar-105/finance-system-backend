@@ -122,3 +122,19 @@ async def test_dashboard_summary_allows_viewer(client: AsyncClient, user_factory
 
     resp = await client.get("/api/v1/dashboard/summary", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
+
+
+async def test_admin_update_user_route_is_rate_limited(client: AsyncClient, user_factory):
+    admin = await user_factory(role="admin")
+    viewer = await user_factory(role="viewer")
+
+    statuses: list[int] = []
+    for _ in range(25):
+        resp = await client.patch(
+            f"/api/v1/users/admin/users/{viewer['user']['id']}",
+            headers={"Authorization": f"Bearer {admin['tokens']['access_token']}"},
+            json={"is_active": True},
+        )
+        statuses.append(resp.status_code)
+
+    assert 429 in statuses

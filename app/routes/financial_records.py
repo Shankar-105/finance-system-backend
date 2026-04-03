@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from redis.asyncio import Redis
 from sqlalchemy import delete, func, or_, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -53,6 +54,17 @@ async def _purge_expired_deleted_records(db: AsyncSession) -> None:
     await db.commit()
 
 
+async def _safe_commit(db: AsyncSession, *, integrity_detail: str, generic_detail: str) -> None:
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=integrity_detail) from exc
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=generic_detail) from exc
+
+
 @router.post("", response_model=FinancialRecordOut, status_code=status.HTTP_201_CREATED)
 async def create_financial_record(
     payload: FinancialRecordCreate,
@@ -78,7 +90,11 @@ async def create_financial_record(
         user_id=target_user_id,
     )
     db.add(row)
-    await db.commit()
+    await _safe_commit(
+        db,
+        integrity_detail="Unable to create record with provided data",
+        generic_detail="Failed to create financial record",
+    )
     await db.refresh(row)
     await invalidate_dashboard_cache(redis)
     return FinancialRecordOut.model_validate(row)
@@ -208,6 +224,8 @@ async def import_financial_records_csv(
     raw_body = await request.body()
     if not raw_body:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CSV body is empty")
+    if len(raw_body) > get_settings().max_csv_import_bytes:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="CSV body too large")
 
     try:
         csv_text = raw_body.decode("utf-8")
@@ -254,7 +272,11 @@ async def import_financial_records_csv(
             for _, payload, _ in valid_rows
         ]
         db.add_all(created_rows)
-        await db.commit()
+        await _safe_commit(
+            db,
+            integrity_detail="CSV contains rows that violate data constraints",
+            generic_detail="Failed to import CSV records",
+        )
         imported_count = len(created_rows)
         await invalidate_dashboard_cache(redis)
 
@@ -326,7 +348,11 @@ async def update_financial_record(
         else:
             setattr(row, key, value)
 
-    await db.commit()
+    await _safe_commit(
+        db,
+        integrity_detail="Unable to update record with provided data",
+        generic_detail="Failed to update financial record",
+    )
     await db.refresh(row)
     await invalidate_dashboard_cache(redis)
     return FinancialRecordOut.model_validate(row)

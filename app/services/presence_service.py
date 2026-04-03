@@ -1,6 +1,7 @@
 import asyncio
+import logging
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 from jose import JWTError
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.models import User
 from app.oauth2 import decode_token
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _presence_key(user_id: int) -> str:
@@ -78,7 +80,8 @@ async def handle_presence_socket(websocket: WebSocket, redis: Redis) -> None:
 
 	try:
 		user_id = await _authenticate_socket_user(websocket, redis)
-	except ValueError:
+	except ValueError as exc:
+		logger.debug("Presence websocket authentication failed: %s", exc)
 		return
 
 	await set_online(redis, user_id)
@@ -96,7 +99,12 @@ async def handle_presence_socket(websocket: WebSocket, redis: Redis) -> None:
 			except asyncio.TimeoutError:
 				await websocket.send_json({"type": "ping"})
 				await set_online(redis, user_id)
-	except Exception:
-		pass
+	except WebSocketDisconnect:
+		logger.debug("Presence websocket disconnected for user_id=%s", user_id)
+	except Exception as exc:
+		logger.warning("Presence websocket loop error for user_id=%s: %s", user_id, exc)
 	finally:
-		await set_offline(redis, user_id)
+		try:
+			await set_offline(redis, user_id)
+		except Exception as exc:
+			logger.warning("Failed to clear presence state for user_id=%s: %s", user_id, exc)

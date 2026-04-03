@@ -62,6 +62,7 @@ async def decode_token(token: str) -> TokenPayload:
             token,
             settings.secret_key,
             [settings.algorithm],
+            {"leeway": settings.jwt_clock_skew_seconds},
         )
         return TokenPayload(**payload)
     except JWTError as exc:

@@ -1,8 +1,10 @@
 import json
+import logging
 from datetime import date
 from decimal import Decimal
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +13,7 @@ from app.models import FinancialRecord, RecordType
 from app.schemas import CategoryTotal, MonthlyTrendPoint, RecentActivityItem, SummaryTotals
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _decimal_to_str(value: Decimal) -> str:
@@ -37,7 +40,8 @@ async def invalidate_dashboard_cache(redis: Redis) -> None:
 		keys = await redis.keys("dashboard:*")
 		if keys:
 			await redis.delete(*keys)
-	except Exception:
+	except RedisError as exc:
+		logger.warning("Failed to invalidate dashboard cache: %s", exc)
 		return
 
 
@@ -50,7 +54,8 @@ async def get_summary_totals(
 	key = _cache_key("totals", start_date, end_date)
 	try:
 		cached = await redis.get(key)
-	except Exception:
+	except RedisError as exc:
+		logger.warning("Failed to read dashboard cache key %s: %s", key, exc)
 		cached = None
 	if cached:
 		payload = json.loads(cached)
@@ -94,8 +99,8 @@ async def get_summary_totals(
 			),
 			ex=settings.dashboard_cache_ttl_seconds,
 		)
-	except Exception:
-		pass
+	except RedisError as exc:
+		logger.warning("Failed to write dashboard cache key %s: %s", key, exc)
 	return result
 
 
@@ -108,7 +113,8 @@ async def get_category_totals(
 	key = _cache_key("categories", start_date, end_date)
 	try:
 		cached = await redis.get(key)
-	except Exception:
+	except RedisError as exc:
+		logger.warning("Failed to read dashboard cache key %s: %s", key, exc)
 		cached = None
 	if cached:
 		payload = json.loads(cached)
@@ -130,8 +136,8 @@ async def get_category_totals(
 			),
 			ex=settings.dashboard_cache_ttl_seconds,
 		)
-	except Exception:
-		pass
+	except RedisError as exc:
+		logger.warning("Failed to write dashboard cache key %s: %s", key, exc)
 	return result
 
 
@@ -169,7 +175,8 @@ async def get_monthly_trends(
 	key = _cache_key("monthly_trends", start_date, end_date)
 	try:
 		cached = await redis.get(key)
-	except Exception:
+	except RedisError as exc:
+		logger.warning("Failed to read dashboard cache key %s: %s", key, exc)
 		cached = None
 	if cached:
 		payload = json.loads(cached)
@@ -225,6 +232,6 @@ async def get_monthly_trends(
 			),
 			ex=settings.dashboard_cache_ttl_seconds,
 		)
-	except Exception:
-		pass
+	except RedisError as exc:
+		logger.warning("Failed to write dashboard cache key %s: %s", key, exc)
 	return result

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from redis.exceptions import RedisError
 
 from httpx import AsyncClient
 
@@ -153,3 +154,22 @@ async def test_dashboard_invalid_date_range_returns_400(client: AsyncClient, use
         headers=_auth(token),
     )
     assert resp.status_code == 400
+
+
+async def test_dashboard_summary_falls_back_when_redis_unavailable(client: AsyncClient, user_factory, monkeypatch):
+    import app.main as app_main
+
+    viewer = await user_factory(role="viewer")
+    token = viewer["tokens"]["access_token"]
+
+    async def failing_get(*_args, **_kwargs):
+        raise RedisError("simulated redis read failure")
+
+    async def failing_set(*_args, **_kwargs):
+        raise RedisError("simulated redis write failure")
+
+    monkeypatch.setattr(app_main.redis_client, "get", failing_get)
+    monkeypatch.setattr(app_main.redis_client, "set", failing_set)
+
+    resp = await client.get("/api/v1/dashboard/summary", headers=_auth(token))
+    assert resp.status_code == 200

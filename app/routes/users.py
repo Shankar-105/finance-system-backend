@@ -228,6 +228,7 @@ async def update_user_by_admin(
     payload: UserUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
+    __: None = Depends(sensitive_route_limiter),
 ) -> UserOut:
     if payload.role is None and payload.is_active is None:
         raise HTTPException(

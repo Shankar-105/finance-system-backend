@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     dashboard_cache_ttl_seconds: int = 60
     recycle_bin_retention_days: int = 30
+    max_csv_import_bytes: int = 5 * 1024 * 1024
+    jwt_clock_skew_seconds: int = 10
 
     @computed_field
     @property

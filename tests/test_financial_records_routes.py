@@ -536,3 +536,21 @@ async def test_import_csv_requires_admin(client: AsyncClient, user_factory):
         content="amount,record_type,category,entry_date\n100,income,salary,2026-04-08\n",
     )
     assert imported.status_code == 403
+
+
+async def test_import_csv_rejects_oversized_body(client: AsyncClient, user_factory, monkeypatch):
+    monkeypatch.setenv("MAX_CSV_IMPORT_BYTES", "16")
+    get_settings.cache_clear()
+
+    admin = await user_factory(role="admin")
+    token = admin["tokens"]["access_token"]
+
+    imported = await client.post(
+        "/api/v1/financial-records/import",
+        headers={**_auth(token), "Content-Type": "text/csv"},
+        content="amount,record_type,category,entry_date\n100,income,salary,2026-04-08\n",
+    )
+    assert imported.status_code == 413
+
+    monkeypatch.delenv("MAX_CSV_IMPORT_BYTES", raising=False)
+    get_settings.cache_clear()
