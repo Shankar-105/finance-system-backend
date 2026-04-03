@@ -9,7 +9,7 @@ Modern async finance backend with secure auth, role-based access control, analyt
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
 ![Redis](https://img.shields.io/badge/Redis-7-red?logo=redis)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/Tests-47%20Passing-success)
+![Tests](https://img.shields.io/badge/Tests-55%20Passing-success)
 
 ## 🔥 Start Here: App Workflow
 
@@ -25,6 +25,8 @@ It explains the real journey for `viewer`, `analyst`, and `admin`, including aut
 - RBAC with controlled role governance (viewer, analyst, admin).
 - Dashboard APIs for summary, category distribution, trends, and recent activity.
 - Recycle-bin workflow for deleted records with restore + retention policy.
+- CSV import/export for bulk onboarding and reporting workflows.
+- Search across records by category and notes.
 - Redis-backed cache and rate limiting.
 - Fully async architecture from routes to data layer.
 

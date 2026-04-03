@@ -49,10 +49,13 @@ RBAC is enforced through backend dependency guards, not frontend trust.
 - Create, list, retrieve, update, and soft delete financial records
 - Core fields: amount, type, category, date, notes, user id
 - Filters: date range, category, record type
+- Text search across `category` and `notes` (case-insensitive)
 - Pagination with offset and limit
 - Soft delete for auditability (no immediate hard loss)
 - Recycle-bin endpoints for admin listing and restoring deleted records
 - Automatic purge for expired recycle-bin records (default retention: 30 days)
+- CSV export endpoint for filtered reporting
+- CSV import endpoint for bulk onboarding with row-level partial-success validation
 
 ---
 
@@ -129,7 +132,7 @@ RBAC is enforced through backend dependency guards, not frontend trust.
 
 ## 🧪 11) Test Suite And CI
 
-- 47 automated tests covering auth, RBAC, admin bootstrap, financial routes, recycle-bin retention, dashboard routes, presence service, and route surface
+- 55 automated tests covering auth, RBAC, admin bootstrap, financial routes (including CSV import/export and search), recycle-bin retention, dashboard routes, presence service, and route surface
 - Test isolation includes:
   - separate test database lifecycle
   - dependency-overridden async DB sessions
