@@ -45,7 +45,7 @@ It explains the real journey for `viewer`, `analyst`, and `admin`, including aut
 
 ## 📝 Project Context
 
-This repository was developed as part of an internship assessment by [Zorvyn Fintech](https://zorvyn.io/) focused on secure backend engineering, role-based access control, and practical financial data workflows.
+This repository was developed as part of an internship assessment by [Zorvyn Fintech](https://zorvyn.org/) focused on secure backend engineering, role-based access control, and practical financial data workflows.
 
 ## ⚖️ Technology Choice
 
