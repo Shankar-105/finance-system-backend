@@ -45,7 +45,7 @@ It explains the real journey for `viewer`, `analyst`, and `admin`, including aut
 
 ## 📝 Project Context
 
-This repository was developed as part of an internship assessment by [Zorvyn Fintech](https://zorvyn.org/) focused on secure backend engineering, role-based access control, and practical financial data workflows.
+This repository was developed as part of an internship assessment focused on secure backend engineering, role-based access control, and practical financial data workflows.
 
 ## ⚖️ Technology Choice
 
@@ -53,4 +53,4 @@ I thought to build this in Spring Boot because it is widely used in enterprise f
 
 ## 🙏 Acknowledgement
 
-I am genuinely thankful for this problem statement. Building it end-to-end gave me practical experience with RBAC. While I have previously explored caching, rate-limiting, and other system design concepts in my past projects, I had never worked on an RBAC project before, and this gave me great experience truly thankful.
+Building it end-to-end gave me practical experience with RBAC. While I have previously explored caching, rate-limiting, and other system design concepts in my past projects, I had never worked on an RBAC project before, and this gave me great experience truly thankful.
